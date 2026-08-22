@@ -1,0 +1,46 @@
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Editor settings
+.vscode/
+.idea/
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Raw KIMORE dataset
+/KIMORE/
+/data/raw/
+*.rar
+*.7z
+
+# Generated audit and experiment outputs
+/kimore_audit_output/
+/outputs/
+/results/
+/figures/
+
+kimore_manifest.csv
+kimore_audit_summary.txt
+kimore_scale_diagnostics.csv
+kimore_sample_signal.png
+first_valid_sample.png
