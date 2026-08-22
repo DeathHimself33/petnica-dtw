@@ -19,3 +19,65 @@ The loader is now working and I moved `kimore_dataset.py` into `src/`. I underst
 ### Next step
 
 Tomorrow I should first understand the manifest and loader properly. After that I can start preprocessing by centring the skeleton around `SpineBase` and normalising for body size without removing the trunk rotation that the exercise is supposed to measure.
+
+##21 August 2026
+
+Today I went through both kimore_dataset_audit.py and kimore_dataset.py in detail instead of immediately adding more code. I now understand the main path from the original KIMORE folders to the NumPy arrays that will eventually be used for DTW.
+
+The audit recursively finds subject folders using regular expressions, reads the clinical workbook, checks the position, orientation and timestamp files for each exercise, and writes one manifest row per subject/exercise. I also clarified what the clinical scores mean. PO is the Primary Outcome score for achieving the main goal of the exercise, CF covers posture and control factors, and TS is the total of the two. For this project TS is currently the value that will be predicted.
+
+I also understand why the audit status and loader usability are separate. The audit marks a row as problem if it finds any issue at all, but the position loader only rejects problems that matter to the current approach. It needs a TS score, one valid JointPosition file, a non-empty recording, 100 values per frame and consistent row widths. Missing orientation or timestamp data does not automatically make the position recording unusable.
+
+The loader reads every 100-value frame and reshapes the data from (frames, 100) to (frames, 25, 4). The four values are X, Y, Z and tracking state for each joint. It then separates this into positions shaped (frames, 25, 3) and tracking states shaped (frames, 25).
+
+After understanding the existing code, I started preprocessing. Each frame is centred by subtracting its SpineBase position from every joint. This removes the subject's position relative to the camera without rotating the skeleton, which is important because Exercise 3 is trunk rotation.
+
+Before choosing a body-size scale, I compared torso length (SpineBase to SpineShoulder) with shoulder width (ShoulderLeft to ShoulderRight) over all 76 usable Es3 recordings. Torso length was clearly more reliable: its median relative MAD was 3.16% compared with 6.46% for shoulder width, both torso joints were usable in 100% of frames, and the torso was more stable in 70 of the 76 recordings. Because of this I used the median torso length as the scale rather than assuming it was the best option without testing it.
+
+The preprocessing now centres the positions and divides every coordinate in the recording by one torso-length scale. It keeps the original array unchanged and preserves the tracking states. I first checked B_ID1_Es3, where the shape stayed (1031, 25, 3), SpineBase became exactly zero and the median normalised torso length became 1. I then ran the same validation across all 76 usable recordings and got zero preprocessing failures. The two expected exclusions are still E_ID17_Es3 because of the missing TS score and S_ID5_Es3 because of the missing JointPosition file.
+
+###Next step
+
+Tomorrow I want to go through the preprocessing again from the beginning before adding anything new. I mostly understand it, but I want to be able to explain the centring, broadcasting, scale diagnostic, MAD and normalisation properly rather than only knowing that the checks pass.
+
+## 22 August 2026
+
+### Why I chose Exercise 3
+
+I chose **Exercise 3 (trunk rotation)** for the first DTW baseline. This is a practical starting choice, not a claim that Es3 is universally the best KIMORE exercise.
+
+Es3 has 76 usable recordings with clinical Total Scores ranging from 10 to 50. The usable set includes subjects from all five cohorts: expert controls, non-expert controls, people with back pain, people with Parkinson's disease and people recovering from stroke. Only two Es3 samples are currently excluded: `E_ID17_Es3` has no clinical TS target, and `S_ID5_Es3` has no JointPosition recording.
+
+The movement is also suitable for an interpretable DTW baseline. A recording contains repeated trunk rotations, so DTW can align similar movements that were performed at different speeds. The relationship between the signal and the exercise is understandable: the model should compare how the trunk-rotation pattern develops over time, rather than relying on an opaque feature.
+
+The preprocessing choices are designed to preserve that movement. Centring on `SpineBase` removes camera-relative translation, and normalization by one median torso length reduces body-size differences. I will not rotate each frame into a common body orientation, because doing that could remove the trunk rotation that Es3 is intended to measure.
+
+### What I understand about the scale diagnostic
+
+For each candidate bone, the diagnostic first keeps only frames in which both endpoint joints are fully tracked. It subtracts the first joint position from the second and uses the Euclidean norm of that XYZ vector as the bone length in each usable frame.
+
+The median of those lengths estimates the typical bone length while resisting occasional Kinect outliers. The median absolute deviation (MAD) measures the typical absolute difference from that median. Dividing MAD by the median length produces relative MAD, which lets me compare the stability of measurements with different sizes. The usable fraction separately records how often both joints were fully tracked.
+
+The torso was more suitable than shoulder width because it had lower relative variation and much better tracking availability across Es3. `preprocess_sequence()` therefore uses the median `SpineBase`-to-`SpineShoulder` length as one scale value for the entire recording. It does not choose a different scale candidate for every sample or resize every frame independently.
+
+### What I understand about preprocessing
+
+The input position array has shape `(frames, 25, 3)`. For every frame, centring subtracts that frame's `SpineBase` XYZ position from all 25 joints. NumPy broadcasts the origin from shape `(frames, 1, 3)` across the joint dimension. This makes `SpineBase` equal to zero and removes camera-relative translation, while distances and directions between joints remain unchanged.
+
+Body-size normalization then divides every centred coordinate in the recording by the recording's single median torso length. The resulting coordinates are expressed in torso-length units, which makes subjects of different sizes more comparable. Using one scale for the entire recording avoids stretching and shrinking the skeleton from frame to frame. Tracking states are copied unchanged, and the original input array is not modified.
+
+The preprocessing intentionally does not rotate each frame, force every recording to the same length, smooth signals automatically or discard inferred coordinates. These decisions preserve the Es3 trunk rotation and avoid adding transformations before the data show that they are necessary.
+
+### Subject-wise evaluation groups
+
+I created subject groups from `subject_id` and used five-fold `GroupKFold` splitting. Samples from the same subject are treated as one indivisible group, so that subject cannot appear in both training and testing in a fold. A separate assertion calculates the intersection of the training and testing subject sets and raises an error if it is not empty.
+
+The grouping checks passed on the 76 usable Es3 recordings. Every fold had zero overlapping subjects: the first fold contained 60 training and 16 testing subjects, while the other four contained 61 training and 15 testing subjects. Synthetic tests also confirmed that repeated recordings from one subject stay together and that a deliberately leaking split is rejected.
+
+### End-of-day checks
+
+I reran the preprocessing check on `B_ID1_Es3`. It preserved the `(1031, 25, 3)` shape and tracking states, did not modify the input, produced finite coordinates, made every `SpineBase` coordinate zero and made the median normalized torso length exactly 1.0.
+
+I also reran the scale diagnostic across all 76 usable Es3 recordings. There were zero preprocessing failures. The torso was more stable than shoulder width in 70 recordings, while shoulder width was more stable in six. Torso relative MAD had a dataset median of 3.16% and a worst value of 8.14%; it was usable in 100% of frames in every recording. Shoulder relative MAD had a median of 6.46%, and its usable fraction ranged from 29.24% to a median of 69.65%.
+
+All four subject-grouping tests passed, and the real five-fold split had zero overlapping subjects in every fold. This completes the planned August 22 work: I can explain the core preprocessing, the choice of Es3, the body-scale diagnostic and the reason for subject-wise grouping.
