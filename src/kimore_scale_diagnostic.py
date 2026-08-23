@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from kimore_dataset import load_joint_positions, read_manifest
+from kimore_dataset import JOINT_INDEX, load_joint_positions, read_manifest
 from kimore_preprocessing import (
     diagnose_scale_candidates,
     preprocess_sequence,
@@ -48,6 +48,8 @@ def collect_diagnostics(
             sequence = load_joint_positions(
                 sample.position_path
             )
+            original_positions = sequence.positions.copy()
+            original_tracking_states = sequence.tracking_states.copy()
 
             if len(sequence.positions) != sample.frames:
                 raise ValueError(
@@ -59,18 +61,39 @@ def collect_diagnostics(
             diagnostics = diagnose_scale_candidates(
                 sequence
             )
+            processed = preprocess_sequence(sequence)
+
+            if processed.positions.shape != sequence.positions.shape:
+                raise ValueError(
+                    "Preprocessing changed the position-array shape"
+                )
+            if not np.array_equal(sequence.positions, original_positions):
+                raise ValueError("Preprocessing modified the input positions")
+            if not np.array_equal(
+                sequence.tracking_states,
+                original_tracking_states,
+            ):
+                raise ValueError("Preprocessing modified the input tracking states")
+            if not np.array_equal(
+                processed.tracking_states,
+                original_tracking_states,
+            ):
+                raise ValueError("Preprocessing did not preserve tracking states")
+
+            spine_base = JOINT_INDEX["SpineBase"]
+            spine_shoulder = JOINT_INDEX["SpineShoulder"]
+            normalized_torso_lengths = np.linalg.norm(
+                processed.positions[:, spine_shoulder, :]
+                - processed.positions[:, spine_base, :],
+                axis=1,
+            )
+            if not np.isclose(np.median(normalized_torso_lengths), 1.0):
+                raise ValueError("Median normalized torso length is not one")
+            torso = diagnostics["torso"]
+            shoulders = diagnostics["shoulders"]
         except (OSError, ValueError) as error:
             failures[sample.sample_id] = str(error)
             continue
-
-        processed = preprocess_sequence(sequence)
-
-        if processed.positions.shape != sequence.positions.shape:
-            raise ValueError(
-                "Preprocessing changed the position-array shape"
-            )
-        torso = diagnostics["torso"]
-        shoulders = diagnostics["shoulders"]
 
         rows.append(
             {

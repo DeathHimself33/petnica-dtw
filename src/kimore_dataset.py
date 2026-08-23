@@ -179,7 +179,21 @@ def load_joint_positions(path: Path) -> JointSequence:
 
     raw = np.asarray(rows, dtype=np.float64).reshape(-1, len(JOINT_NAMES), 4)
     positions = raw[:, :, :3]
-    tracking_states = raw[:, :, 3].astype(np.int8)
+    raw_tracking_states = raw[:, :, 3]
+
+    if not np.isfinite(positions).all():
+        raise ValueError(f"{path}: joint positions contain non-finite coordinates")
+
+    valid_tracking_states = np.isin(raw_tracking_states, (0.0, 1.0, 2.0))
+    if not valid_tracking_states.all():
+        invalid_values = np.unique(raw_tracking_states[~valid_tracking_states])
+        formatted_values = ", ".join(str(value) for value in invalid_values[:8])
+        raise ValueError(
+            f"{path}: invalid tracking-state values: {formatted_values}; "
+            "expected only 0, 1 or 2"
+        )
+
+    tracking_states = raw_tracking_states.astype(np.int8)
     return JointSequence(positions=positions, tracking_states=tracking_states)
 
 

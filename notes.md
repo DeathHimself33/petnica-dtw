@@ -81,3 +81,31 @@ I reran the preprocessing check on `B_ID1_Es3`. It preserved the `(1031, 25, 3)`
 I also reran the scale diagnostic across all 76 usable Es3 recordings. There were zero preprocessing failures. The torso was more stable than shoulder width in 70 recordings, while shoulder width was more stable in six. Torso relative MAD had a dataset median of 3.16% and a worst value of 8.14%; it was usable in 100% of frames in every recording. Shoulder relative MAD had a median of 6.46%, and its usable fraction ranged from 29.24% to a median of 69.65%.
 
 All four subject-grouping tests passed, and the real five-fold split had zero overlapping subjects in every fold. This completes the planned August 22 work: I can explain the core preprocessing, the choice of Es3, the body-scale diagnostic and the reason for subject-wise grouping.
+
+## 23 August 2026
+
+### Tracking quality and missing-data decision
+
+I added a dataset-wide tracking-quality diagnostic and ran it on all 76 usable Es3 recordings. It inspected 61,567 frames and 1,539,175 joint observations with zero diagnostic failures. Overall, 92.43% of joint observations were fully tracked and 7.57% were inferred. There were no untracked states, non-finite coordinates or all-zero XYZ joint positions.
+
+The tracking quality is not uniform across joints. `SpineBase`, `SpineMid`, `SpineShoulder` and `Neck` were fully tracked in every frame, which supports the current centring and torso-scaling operations. The least reliable joint was `ElbowRight`, with 77.19% fully tracked observations. `ShoulderLeft` was fully tracked in 85.73% of frames and `ShoulderRight` in 84.54%. Their longest continuous inferred runs were 141 and 154 frames respectively.
+
+Because there are no missing or untracked coordinates, I will not delete frames or recordings and I will not add a missing-value imputation step. I will also not interpolate inferred shoulder or limb coordinates: some inferred runs are long enough that interpolation would invent a substantial part of the movement. The loader now rejects non-finite coordinates and tracking-state values other than 0, 1 or 2 instead of silently accepting malformed data. Tracking states remain available so a later feature or DTW distance can use reliability information if the baseline shows that it is needed.
+
+### Noise and smoothing decision
+
+I measured short-lived noise in a shoulder-axis yaw signal by comparing it with a five-frame moving median. The moving median was used only as a diagnostic, not as preprocessing. Across recordings, the median per-sample 95th-percentile deviation was 0.291 degrees. The worst per-sample 95th percentile was 4.072 degrees, and the largest isolated deviation was 53.555 degrees in `P_ID9_Es3`.
+
+This means a few localized tracking jumps are real, so it would be wrong to claim that the recordings are perfectly clean. It does not justify applying one blanket smoother to all coordinates: most values are clean, different joints have different tracking quality, and long inferred runs cannot be repaired by light smoothing. The baseline will therefore use no automatic global smoothing. If a chosen DTW signal is visibly damaged by these jumps, a fixed feature-level filter can be compared as an explicit model choice using training subjects only.
+
+### Rotation, duration and visual verification
+
+I kept the decision not to rotate each frame, because that could remove the Es3 trunk rotation. As a rough camera-alignment check, the per-recording median pelvis-axis yaw ranged from -5.42 to 9.87 degrees between the dataset's 5th and 95th percentiles. This does not show a clear camera-orientation problem, and pelvis direction also changes with the subject's movement, so I will not introduce a fixed camera correction from this evidence.
+
+Sequence lengths range from 364 to 1,517 frames. I will not resample them to one length because duration variation is the reason for using DTW. Any learned dataset-level feature scaling or parameter selection must be fitted using training subjects only; the per-recording torso scale is computed from that recording itself and does not use other subjects or clinical scores.
+
+I generated two before/after figures for `B_ID1_Es3`. The first compares the camera-relative `SpineShoulder` X coordinate with the SpineBase-relative, torso-normalized signal. The second compares shoulder-axis yaw before and after preprocessing. The yaw curves have a maximum absolute difference of only `1.42e-14` degrees, confirming numerically and visually that translation and uniform body-size normalization preserve this trunk-rotation measurement.
+
+### End-of-day validation
+
+The final scale and preprocessing diagnostic again completed all 76 usable recordings with zero failures. It checked that preprocessing preserves shape and tracking states, does not modify the input arrays, produces finite coordinates, centres `SpineBase` at zero and makes median torso length equal to one. All 11 automated tests passed, including new tests for loader validation, centring, scaling, input preservation, tracking-state counts, moving-median behaviour, run-length measurement and yaw invariance to translation and scale.
