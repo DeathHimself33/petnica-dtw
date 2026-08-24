@@ -177,3 +177,66 @@ training-only reference selection, the reference-quality fallback and recovery
 of a known linear calibration. The real run saved 76 inspectable prediction
 rows, fold/reference metadata, and closest and most-distant held-out alignment
 figures.
+
+## 25 August 2026 (completed early on 24 August)
+
+### Five-fold subject-wise evaluation
+
+I extended the frozen plain-DTW method from one preview split to all five outer
+subject-wise folds. Every fold programmatically confirmed zero overlap between
+training and test subjects. Each fold selected its reference and fitted its
+linear calibration using training subjects only. Every one of the 76 usable
+Es3 subjects now has exactly one out-of-fold prediction.
+
+The reproducible runner saves the 76 prediction rows, fold-wise and overall
+metrics, per-fold references and calibration coefficients, constant-baseline
+predictions, the manifest SHA-256 hash, package versions, bootstrap settings
+and an actual-versus-predicted diagnostic plot. Exact DTW alignments are cached
+when multiple folds select the same training reference. One project-root
+command recreates the experiment:
+
+`python run_experiment.py --exercise Es3 --method plain_dtw`
+
+### Final internal baseline result
+
+Across all 76 out-of-fold predictions, plain DTW obtained MAE 6.981 TS points,
+RMSE 8.932, Spearman 0.301 and Pearson 0.345. The subject-bootstrap 95%
+intervals were 5.825-8.283 for MAE, 7.157-10.804 for RMSE, 0.090-0.492 for
+Spearman and 0.129-0.553 for Pearson.
+
+The comparison with constant predictions changes how these values should be
+interpreted. The training-median baseline had MAE 7.342, only 0.360 points
+worse than DTW. Its paired bootstrap improvement interval was -0.547 to 1.334.
+The training-mean baseline had RMSE 9.521, only 0.589 points worse, with an
+improvement interval of -0.192 to 1.501. Because both intervals include zero,
+I cannot claim that this DTW baseline reliably beats constant prediction.
+
+### What the fold differences show
+
+The result was unstable across folds. Fold 5 had Spearman 0.686 and MAE 5.882,
+while fold 4 had Spearman -0.018 and MAE 10.070. Four folds used `E_ID7_Es3`
+as their training-only reference and learned calibration slopes between about
+-0.79 and -0.90. Fold 4 held `E_ID7` out, selected the next eligible reference,
+`NE_ID13_Es3`, and learned a slope of only -0.090. This shows that the
+single-template method depends heavily on which suitable reference is
+available in training.
+
+The prediction plot shows strong regression toward the middle of the score
+range. Several low-scoring Parkinson's recordings were predicted near 40, and
+many high-scoring expert/non-expert recordings were underpredicted. Shoulder
+yaw contains some relationship with score, but it does not capture all the
+posture and control information included in clinical TS.
+
+I will not change the template rule or feature after seeing these outer-fold
+results. Possible later work includes multiple templates or additional
+interpretable features, but those ideas require a new nested or external
+evaluation rather than tuning against these same test predictions.
+
+### Packaging and checks
+
+The project now has a root experiment runner, locked direct dependencies, a
+README with setup and outputs, a detailed evaluation rationale and backed-up
+compact final results/figure. All 24 automated tests pass. New checks cover
+metric calculations, undefined constant correlations, training-only constant
+baselines, exact once-only out-of-fold coverage, deterministic subject-level
+bootstrap intervals and paired baseline improvements.

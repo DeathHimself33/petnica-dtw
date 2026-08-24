@@ -1,0 +1,85 @@
+{
+  "bootstrap_resamples": 5000,
+  "bootstrap_seed": 20260825,
+  "calibration": "ordinary least-squares line fitted separately in each outer training fold",
+  "distance": "aligned RMSE in shoulder-axis yaw degrees along the exact DTW path",
+  "environment": {
+    "matplotlib": "3.5.3",
+    "numpy": "1.21.6",
+    "python": "3.7.4",
+    "scipy": "1.7.3"
+  },
+  "excluded_samples": {
+    "E_ID17_Es3": "missing clinical TS target",
+    "S_ID5_Es3": "missing JointPosition CSV"
+  },
+  "exercise": "Es3",
+  "feature": "shoulder_axis_yaw_degrees",
+  "folds": 5,
+  "interpretation": "Internal development cross-validation on KIMORE. Fold 1 informed pipeline inspection before the rule was frozen; this is not external validation.",
+  "manifest_path": "D:\\Main Folder\\IT\\Petnica\\Rac2 Letnji\\petnica-dtw\\kimore_audit_output\\kimore_manifest.csv",
+  "manifest_sha256": "1b86673f4ab40c499fa74db63a2415608faa9e2681134b08df277c8dc01950b1",
+  "method": "plain_dtw",
+  "oof_prediction_rows": 76,
+  "outputs": {
+    "diagnostic_plot": "D:\\Main Folder\\IT\\Petnica\\Rac2 Letnji\\petnica-dtw\\figures\\plain_dtw\\actual_vs_predicted.png",
+    "fold_metadata": "D:\\Main Folder\\IT\\Petnica\\Rac2 Letnji\\petnica-dtw\\results\\plain_dtw\\fold_metadata.json",
+    "metrics": "D:\\Main Folder\\IT\\Petnica\\Rac2 Letnji\\petnica-dtw\\results\\plain_dtw\\metrics.csv",
+    "predictions": "D:\\Main Folder\\IT\\Petnica\\Rac2 Letnji\\petnica-dtw\\results\\plain_dtw\\oof_predictions.csv"
+  },
+  "overall_plain_dtw": {
+    "mae": 6.981470399484894,
+    "pearson": 0.3452009236983312,
+    "rmse": 8.932384448445989,
+    "spearman": 0.3012599284801202
+  },
+  "overall_training_mean_constant": {
+    "mae": 7.449976529335174,
+    "rmse": 9.52122717304788
+  },
+  "overall_training_median_constant": {
+    "mae": 7.341508246646562,
+    "rmse": 9.756802802175097
+  },
+  "paired_bootstrap_improvements": {
+    "mae_reduction_vs_training_median": {
+      "estimate": 0.3600378471616681,
+      "high": 1.3339369836273849,
+      "low": -0.5465075630694636,
+      "valid_resamples": 5000
+    },
+    "rmse_reduction_vs_training_mean": {
+      "estimate": 0.588842724601891,
+      "high": 1.5012677776752095,
+      "low": -0.1923368686184021,
+      "valid_resamples": 5000
+    }
+  },
+  "plain_dtw_bootstrap_95_percent_intervals": {
+    "mae": {
+      "high": 8.283410807595343,
+      "low": 5.8253963839732235,
+      "valid_resamples": 5000
+    },
+    "pearson": {
+      "high": 0.5532688735881934,
+      "low": 0.1293297626592016,
+      "valid_resamples": 5000
+    },
+    "rmse": {
+      "high": 10.803686653739996,
+      "low": 7.156976556688961,
+      "valid_resamples": 5000
+    },
+    "spearman": {
+      "high": 0.491910480106978,
+      "low": 0.08988415401683932,
+      "valid_resamples": 5000
+    }
+  },
+  "reference_rule": "training recordings with at least 99% fully tracked shoulder frames, then highest clinical TS; if none qualify, best tracked training recording(s), then highest TS; final tie by sample ID",
+  "reference_tracking_threshold": 0.99,
+  "samples": 76,
+  "subject_overlap_in_every_fold": 0,
+  "unique_subjects": 76
+}

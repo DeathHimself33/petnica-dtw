@@ -90,6 +90,34 @@ single-template, single-feature baseline is insufficient.
 
 The fold-1 numbers produced on August 24 are a pipeline preview. They were used
 while inspecting and freezing the template-quality rule, so they must not be
-presented as the final untouched performance estimate. The five-fold run after
-the pipeline is frozen is the planned internal evaluation, and an independent
-external dataset would still be required for a strong generalization claim.
+presented as an untouched performance estimate. The frozen five-fold run is an
+internal development evaluation, and an independent external dataset would
+still be required for a strong generalization claim.
+
+## Frozen five-fold result
+
+The complete run produced one out-of-fold prediction for each of the 76
+subjects and confirmed zero subject overlap in every fold.
+
+| Metric | Plain DTW | Subject-bootstrap 95% interval |
+|---|---:|---:|
+| MAE | 6.981 TS points | 5.825 to 8.283 |
+| RMSE | 8.932 TS points | 7.157 to 10.804 |
+| Spearman | 0.301 | 0.090 to 0.492 |
+| Pearson | 0.345 | 0.129 to 0.553 |
+
+The training-median baseline MAE was 7.342, so plain DTW reduced MAE by 0.360
+points. The paired 95% interval for this reduction was -0.547 to 1.334. The
+training-mean baseline RMSE was 9.521, so plain DTW reduced RMSE by 0.589
+points, with a paired interval of -0.192 to 1.501. Both intervals include zero;
+the apparent improvements are too uncertain to claim a reliable advantage.
+
+Results also varied substantially between folds. Fold-5 Spearman was 0.686,
+but fold-4 Spearman was -0.018. Four folds used `E_ID7_Es3` as the reference.
+Fold 4 held that subject out, selected `NE_ID13_Es3`, and produced a calibration
+slope of only -0.090 rather than approximately -0.8 to -0.9. This exposes the
+single-template baseline's sensitivity to reference choice.
+
+The correct conclusion is not that DTW has succeeded or failed in general. The
+thin pipeline is reproducible and leakage-safe, but this single-feature,
+single-template version does not outperform constant prediction reliably.

@@ -1,0 +1,139 @@
+{
+  "folds": [
+    {
+      "calibration_intercept": 52.279527593922985,
+      "calibration_slope": -0.8974451905793878,
+      "fold": 1,
+      "reference_actual_ts": 47.333333333333336,
+      "reference_sample_id": "E_ID7_Es3",
+      "reference_shoulder_tracked_fraction": 0.9989293361884368,
+      "reference_subject_id": "E_ID7",
+      "subject_overlap": 0,
+      "test_cohort_counts": {
+        "back_pain": 2,
+        "expert_control": 4,
+        "nonexpert_control": 4,
+        "parkinson": 2,
+        "stroke": 4
+      },
+      "test_metrics": {
+        "mae": 5.906691743048883,
+        "pearson": 0.3778700498832225,
+        "rmse": 7.293191684590397,
+        "spearman": 0.30757918555099845
+      },
+      "test_subjects": 16,
+      "training_mean_ts": 39.500756220914354,
+      "training_median_ts": 42.0,
+      "training_subjects": 60
+    },
+    {
+      "calibration_intercept": 51.273011029154546,
+      "calibration_slope": -0.8327655635242655,
+      "fold": 2,
+      "reference_actual_ts": 47.333333333333336,
+      "reference_sample_id": "E_ID7_Es3",
+      "reference_shoulder_tracked_fraction": 0.9989293361884368,
+      "reference_subject_id": "E_ID7",
+      "subject_overlap": 0,
+      "test_cohort_counts": {
+        "back_pain": 1,
+        "expert_control": 3,
+        "nonexpert_control": 6,
+        "parkinson": 4,
+        "stroke": 1
+      },
+      "test_metrics": {
+        "mae": 7.495941962870643,
+        "pearson": 0.42197796388717285,
+        "rmse": 9.308648007542223,
+        "spearman": 0.19158529259725088
+      },
+      "test_subjects": 15,
+      "training_mean_ts": 39.164678250079696,
+      "training_median_ts": 41.0,
+      "training_subjects": 61
+    },
+    {
+      "calibration_intercept": 52.32631957846513,
+      "calibration_slope": -0.9025201250420963,
+      "fold": 3,
+      "reference_actual_ts": 47.333333333333336,
+      "reference_sample_id": "E_ID7_Es3",
+      "reference_shoulder_tracked_fraction": 0.9989293361884368,
+      "reference_subject_id": "E_ID7",
+      "subject_overlap": 0,
+      "test_cohort_counts": {
+        "back_pain": 2,
+        "expert_control": 2,
+        "nonexpert_control": 6,
+        "parkinson": 4,
+        "stroke": 1
+      },
+      "test_metrics": {
+        "mae": 5.624726766730991,
+        "pearson": 0.18846581740163162,
+        "rmse": 7.050805911240893,
+        "spearman": 0.08042898653967125
+      },
+      "test_subjects": 15,
+      "training_mean_ts": 39.09863541280614,
+      "training_median_ts": 42.0,
+      "training_subjects": 61
+    },
+    {
+      "calibration_intercept": 40.875229143852124,
+      "calibration_slope": -0.08979341087704482,
+      "fold": 4,
+      "reference_actual_ts": 42.0,
+      "reference_sample_id": "NE_ID13_Es3",
+      "reference_shoulder_tracked_fraction": 1.0,
+      "reference_subject_id": "NE_ID13",
+      "subject_overlap": 0,
+      "test_cohort_counts": {
+        "back_pain": 2,
+        "expert_control": 3,
+        "nonexpert_control": 6,
+        "parkinson": 3,
+        "stroke": 1
+      },
+      "test_metrics": {
+        "mae": 10.069851944495134,
+        "pearson": 0.013622100312353752,
+        "rmse": 12.899387780069638,
+        "spearman": -0.017905167532453355
+      },
+      "test_subjects": 15,
+      "training_mean_ts": 39.65902571236265,
+      "training_median_ts": 41.0,
+      "training_subjects": 61
+    },
+    {
+      "calibration_intercept": 50.61487232384156,
+      "calibration_slope": -0.7850196548917222,
+      "fold": 5,
+      "reference_actual_ts": 47.333333333333336,
+      "reference_sample_id": "E_ID7_Es3",
+      "reference_shoulder_tracked_fraction": 0.9989293361884368,
+      "reference_subject_id": "E_ID7",
+      "subject_overlap": 0,
+      "test_cohort_counts": {
+        "back_pain": 1,
+        "expert_control": 4,
+        "nonexpert_control": 5,
+        "parkinson": 3,
+        "stroke": 2
+      },
+      "test_metrics": {
+        "mae": 5.881791490707884,
+        "pearson": 0.6717475500411498,
+        "rmse": 6.690361801244012,
+        "spearman": 0.6857142857142856
+      },
+      "test_subjects": 15,
+      "training_mean_ts": 39.64273362635673,
+      "training_median_ts": 42.0,
+      "training_subjects": 61
+    }
+  ]
+}
