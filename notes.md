@@ -109,3 +109,71 @@ I generated two before/after figures for `B_ID1_Es3`. The first compares the cam
 ### End-of-day validation
 
 The final scale and preprocessing diagnostic again completed all 76 usable recordings with zero failures. It checked that preprocessing preserves shape and tracking states, does not modify the input arrays, produces finite coordinates, centres `SpineBase` at zero and makes median torso length equal to one. All 11 automated tests passed, including new tests for loader validation, centring, scaling, input preservation, tracking-state counts, moving-median behaviour, run-length measurement and yaw invariance to translation and scale.
+
+## 24 August 2026
+
+### Plain DTW baseline
+
+I implemented the first end-to-end plain-DTW prediction pipeline on one
+subject-wise fold. It loads and preprocesses all 76 usable Es3 recordings,
+extracts shoulder-axis yaw as a one-dimensional and interpretable trunk-
+rotation signal, selects one reference using training subjects only, aligns
+every signal with exact unconstrained DTW and reports the path-normalized
+aligned RMSE in degrees.
+
+The clinical calibration is a simple least-squares line from DTW distance to
+Total Score. It is fitted on the 60 training subjects only and then applied to
+the 16 held-out subjects. The saved prediction table includes the fold and
+train/test role, sample and subject IDs, cohort, actual and predicted TS, DTW
+distance, frame count, alignment-path length, feature, reference metadata and
+calibration coefficients. The fold has zero overlapping subjects.
+
+I initially selected the highest-score training execution and used shoulder
+tracking fraction only to break score ties. The resulting reference,
+`E_ID12_Es3`, contained obvious abrupt jumps in its yaw trace even though its
+aggregate shoulder tracking fraction was high. The alignment figures caught
+this problem. I changed and froze the reference rule to first require at least
+99% fully tracked shoulder frames when that is possible, and then choose the
+highest clinical score from that reliable training pool. If no training sample
+meets the threshold, the rule falls back to the best-tracked training sample or
+samples. This selected `E_ID7_Es3`, with TS 47.33 and 99.89% fully tracked
+shoulder frames. Its reference trace is visibly much cleaner.
+
+The final fold-1 preview produced a test MAE of 5.907 TS points, RMSE of 7.293,
+Spearman correlation of 0.308 and Pearson correlation of 0.378 on 16 test
+subjects. These values are not the final model result. The fold is small, the
+correlations are weak, and this preliminary split was used while checking and
+freezing the pipeline. A slightly earlier, less defensible reference happened
+to give a lower MAE, which is a useful reminder not to choose methodology just
+because it improves one test number.
+
+### How result evaluation will work
+
+The final internal evaluation will use all five outer `GroupKFold` splits. A
+new reference and calibration will be fitted independently inside each
+training fold, every subject will receive exactly one out-of-fold prediction,
+and the pooled predictions will be evaluated with MAE and Spearman as primary
+metrics plus RMSE and Pearson as secondary metrics. Fold-wise metrics and an
+actual-versus-predicted plot will also be saved.
+
+I added an evaluation plan that makes two important points more explicit than
+the original schedule. First, the DTW errors must be compared with constant
+training-fold baselines: the training median for MAE and the training mean for
+RMSE. Second, the pooled metrics should receive subject-level bootstrap 95%
+confidence intervals because 76 subjects is too small for point estimates to
+look more certain than they are.
+
+This is internal KIMORE cross-validation, not external validation. The current
+shoulder-yaw feature captures rotation timing and amplitude but not every
+posture and control factor in the clinical score. A weak result would show the
+limits of this thin baseline rather than prove that all DTW-based approaches
+are unsuitable.
+
+### End-of-day validation
+
+All 17 automated tests pass. The new tests cover an identical zero-cost
+alignment, repetition handling, rejection of non-finite features,
+training-only reference selection, the reference-quality fallback and recovery
+of a known linear calibration. The real run saved 76 inspectable prediction
+rows, fold/reference metadata, and closest and most-distant held-out alignment
+figures.
