@@ -27,6 +27,11 @@ For every arrow, answer:
    - Explain the reshape to `(frames, 25, 4)` and separation into XYZ plus
      tracking state.
    - Explain why 76 Es3 samples are usable and why two are excluded.
+   - Explain why the audit has 74 fully clean Es3 rows but the position-based
+     loader has 76 usable rows: missing orientation alone does not block this
+     model.
+   - Explain how correctly named repeated clinical workbooks are compared and
+     why E_ID3's misfiled E_ID1 workbooks are ignored with a warning.
 2. `src/kimore_preprocessing.py`
    - Demonstrate NumPy broadcasting when subtracting `SpineBase`.
    - Explain median torso length, MAD and one scale per recording.
@@ -55,7 +60,7 @@ For every arrow, answer:
 7. `run_experiment.py`
    - Run it and point to each saved output.
 
-End Day 1 by running all 24 tests and explaining what failure each test would
+End Day 1 by running all 33 tests and explaining what failure each test would
 catch. Do not just state that they pass.
 
 ## Day 2: explain and defend the result
@@ -67,18 +72,21 @@ catch. Do not just state that they pass.
 > median torso length. I extract shoulder-axis yaw because Es3 measures trunk
 > rotation, then use exact DTW to align recordings performed at different
 > speeds. Distance is path-normalized aligned RMSE rather than raw accumulated
-> cost.
+> cost. Centring and scaling are useful generic preprocessing, but shoulder yaw
+> is invariant to both, so they do not change this model's signal.
 >
 > Evaluation uses five subject-wise folds. In every fold, both the reference
 > execution and the linear mapping from distance to clinical Total Score use
-> training subjects only. Every subject receives one held-out prediction.
+> training subjects only. Every subject receives one out-of-fold prediction.
 >
-> The baseline achieved MAE 6.98 TS points and Spearman 0.30. It was only 0.36
-> MAE points better than a training-median constant, and the paired bootstrap
-> interval for that improvement crossed zero. Results also varied strongly by
-> fold because the method depends on one reference. Therefore the pipeline is
-> reproducible and leakage-safe, and shoulder yaw contains some score-related
-> information, but this version does not reliably beat constant prediction.
+> The baseline achieved MAE 6.98 TS points and pooled Spearman 0.30. It was only
+> 0.36 MAE points better than a global training-median constant, with an
+> interval crossing zero. More importantly, a post-hoc training-cohort median
+> achieved MAE 5.85, so the DTW model was worse than a cohort-aware constant.
+> Within-cohort mean-centred Spearman fell to 0.22. Paths were also very
+> permissive: a median 70% of moves were non-diagonal. Therefore the software is
+> reproducible and subject-disjoint, but this predictive method is unstable,
+> overwarped and partly cohort-confounded.
 
 ### Likely mentor questions
 
@@ -90,13 +98,17 @@ and an interpretable repeated trunk-rotation movement that DTW can align.
 **Why centre on SpineBase?**
 
 It removes camera-relative translation. Subtracting the same origin from every
-joint preserves distances and directions between joints.
+joint preserves distances and directions between joints. For shoulder-axis yaw,
+this operation makes no numerical difference, so it is pipeline consistency
+rather than a source of predictive improvement.
 
 **Why median torso length?**
 
 The diagnostic showed lower relative MAD and better tracking availability than
 shoulder width. One median scale per recording reduces body-size differences
-without making the skeleton expand and contract frame by frame.
+for coordinate features without making the skeleton expand and contract frame
+by frame. Uniform scaling does not change shoulder yaw, so it has no effect on
+this model's final signal.
 
 **Why no frame-wise rotation?**
 
@@ -106,7 +118,11 @@ could remove the movement being measured.
 **Why no resampling to one length?**
 
 Different duration is the main reason to use DTW. Resampling would add another
-transformation before an observed need justified it.
+transformation. However, the path diagnostic shows that unconstrained DTW went
+too far in the other direction: 70.34% of path moves were non-diagonal at the
+median.
+So “DTW handles duration” is not a complete defence; a future constrained,
+penalized or repetition-segmented method needs genuinely new evaluation.
 
 **Why no global smoothing?**
 
@@ -130,8 +146,9 @@ typical aligned error in degrees.
 
 Training and test subject sets are asserted disjoint. Each fold selects its
 reference from training indices only, fits calibration on training distances
-and scores only, and evaluates untouched fold predictions. Each subject appears
-in exactly one outer test fold.
+and scores only, and gives each subject one out-of-fold prediction. Do not call
+the predictions untouched: fold 1 informed the reference threshold, and the
+method was developed on KIMORE.
 
 **Why MAE and Spearman?**
 
@@ -147,10 +164,18 @@ mean is the optimal constant target for squared error/RMSE.
 
 **What does the bootstrap interval mean?**
 
-Subjects are sampled with replacement, keeping actual and predicted values
-paired. Repeating this 5,000 times shows how much the metric could vary from
-the particular 76-subject sample. The error-improvement intervals cross zero,
-so a reliable advantage over constants is not established.
+Subjects are sampled with replacement, keeping the 76 saved actual/predicted
+pairs fixed. Repeating this 5,000 times gives a conditional fixed-prediction
+interval. It does not rerun folds, reference selection, calibration or feature
+selection, so it understates the full development and model-selection
+uncertainty.
+
+**Does the 99% threshold solve shoulder-tracking quality?**
+
+No. It only filters reference candidates, and only 8 of 76 recordings meet it.
+All frames from non-reference samples still enter DTW, including inferred
+shoulder coordinates. The threshold was also chosen after inspecting fold 1,
+so it is a documented development choice rather than independently validated.
 
 **Why did fold 4 fail?**
 
@@ -159,11 +184,21 @@ reference was `NE_ID13`, and training distance barely related to score: the
 calibration slope was -0.09 instead of about -0.8 to -0.9. This exposes
 single-template sensitivity.
 
+**Why is the cohort-aware baseline important?**
+
+KIMORE combines groups with different score distributions. A global constant
+ignores information already present in the cohort label. Training-fold cohort
+constants obtain MAE 5.85 and RMSE 7.53, both better than DTW. This comparator
+was added post hoc, so it is diagnostic rather than preregistered, but it makes
+the weakness of the original comparison impossible to ignore.
+
 **Does the method work?**
 
-The software and leakage-safe evaluation work. The predictive method shows a
-modest positive association, but it does not reliably beat constant prediction.
-Do not collapse those two different meanings of "works."
+The software runs reproducibly, prevents subject overlap and keeps fold-specific
+fitting on training rows. The predictive method does not work well: it is worse
+than a cohort-aware constant, unstable across folds, excessively warped and
+poorly calibrated for low Parkinson scores. Do not collapse those two meanings
+of "works."
 
 **What would you try next?**
 
@@ -175,11 +210,19 @@ tuned against these same outer predictions.
 ### Claims to avoid
 
 - Do not call this external validation or a clinical model.
+- Do not call the entire development evaluation untouched or simply
+  “leakage-safe.” State the narrower verified properties.
 - Do not say DTW definitely beats the baseline; the improvement intervals
   include zero.
+- Do not use only the global constants while hiding the stronger post-hoc
+  cohort constants.
 - Do not say DTW is useless; this experiment tests one feature and one template.
 - Do not call 0.30 a strong correlation.
 - Do not hide fold 4 or the low-score overprediction pattern.
+- Do not say preprocessing improves the shoulder-yaw model; the feature is
+  translation- and scale-invariant.
+- Do not say bootstrap intervals include split, refitting or selection
+  uncertainty.
 - Do not claim GroupKFold changes leakage for the current one-sample-per-subject
   Es3 subset; explain why the explicit rule is still correct engineering.
 

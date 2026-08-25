@@ -24,7 +24,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--exercise",
         default="Es3",
-        choices=[f"Es{i}" for i in range(1, 6)],
+        choices=["Es3"],
+        help="Exercise supported by the frozen shoulder-yaw method (Es3 only)",
     )
     parser.add_argument(
         "--method",
@@ -35,7 +36,10 @@ def parse_args() -> argparse.Namespace:
         "--bootstrap-resamples",
         type=int,
         default=5000,
-        help="Subject-level bootstrap resamples (default: 5000)",
+        help=(
+            "Conditional fixed-OOF-prediction subject-bootstrap resamples "
+            "(default: 5000)"
+        ),
     )
     parser.add_argument(
         "--output-dir",

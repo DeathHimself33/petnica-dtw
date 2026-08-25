@@ -100,6 +100,8 @@ def explain_position_exclusion(row: dict[str, str]) -> str | None:
     issues = row.get("issues") or ""
     if "position has" in issues and "inconsistent-width rows" in issues:
         return "JointPosition contains inconsistent-width rows"
+    if "position has" in issues and "nonnumeric rows" in issues:
+        return "JointPosition contains nonnumeric rows"
     return None
 
 

@@ -236,7 +236,57 @@ evaluation rather than tuning against these same test predictions.
 
 The project now has a root experiment runner, locked direct dependencies, a
 README with setup and outputs, a detailed evaluation rationale and backed-up
-compact final results/figure. All 24 automated tests pass. New checks cover
+compact final results/figure. At that point, all 24 automated tests passed. New checks covered
 metric calculations, undefined constant correlations, training-only constant
 baselines, exact once-only out-of-fold coverage, deterministic subject-level
 bootstrap intervals and paired baseline improvements.
+
+## 25 August 2026 revision audit
+
+The saved predictions, metrics and figures were reproduced byte for byte (the
+summary differed only in local paths before portability was repaired). All DTW
+costs were independently checked against a separate dynamic-programming
+implementation, all 76 subjects occur once out of fold, and every fold has zero
+subject overlap. The software results are real; the main corrections are to the
+methodological interpretation.
+
+The global constant comparison was too weak for a heterogeneous dataset. A
+post-hoc comparator now computes cohort-specific constants from each outer
+training fold only. Cohort-median MAE is 5.846 and cohort-mean RMSE is 7.525,
+both better than plain DTW's 6.981 and 8.932. Pooled Spearman is 0.301, but the
+within-cohort mean-centred value is only 0.217. Cohort biases run from -8.295 TS
+points for experts to +6.229 for Parkinson subjects. This comparator is labeled
+post hoc because it was added after inspecting the frozen OOF predictions.
+
+Unconstrained DTW is also much more permissive than the earlier explanation
+admitted. The median OOF path has 70.34% non-diagonal moves and is 1.365 times
+the length of the longer sequence. It can align away missing/extra repetitions,
+idle periods and irregular timing. That is intended algorithm behavior, not a
+coding error, but it weakens the clinical meaning of the distance.
+
+The 99% shoulder-tracking rule filters only template candidates; only 8 of 76
+recordings qualify, while all frames—including inferred shoulder coordinates—
+are still used for other samples. The threshold was chosen after fold-1
+inspection. In addition, centring and torso scaling change shoulder yaw by less
+than numerical precision, so preprocessing does not improve this final feature.
+Absolute yaw is untrimmed and unsegmented; first-window offsets may mix movement
+phase, resting orientation and acquisition setup.
+
+The audit now selects correctly named subject workbooks, validates repeated
+same-subject copies for score conflicts, and warns about E_ID3's three misfiled
+E_ID1 workbooks. Score problems stay local to their exercise. It now reports 74
+fully clean Es3 rows separately from the 76 position-plus-target rows usable by
+this model. The exact usable cohort and targets did not change.
+
+Reproducibility repairs add the missing `openpyxl` dependency, restrict the
+plain-DTW runner to Es3, reject audited nonnumeric position rows, record
+scikit-learn, portable output paths, source revision, and source-code and input-
+content hashes. Bootstrap intervals are now labeled as conditional on fixed OOF
+predictions. The suite has 33 passing tests, including a synthetic five-fold
+end-to-end smoke test.
+
+The wording to use from now on is: the pipeline is reproducible, its folds are
+subject-disjoint, and fold-specific fitting uses training rows only. It is not
+an untouched or external validation. The predictive method is unstable,
+overwarped, partly cohort-confounded and worse than a post-hoc cohort-aware
+constant.

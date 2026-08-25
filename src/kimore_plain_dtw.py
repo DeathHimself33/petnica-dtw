@@ -1,4 +1,4 @@
-"""Run the first leakage-safe, plain-DTW KIMORE baseline split.
+"""Run the first subject-disjoint, plain-DTW KIMORE baseline split.
 
 The signal is shoulder-axis yaw: a direct and interpretable measurement of the
 trunk rotation exercised in Es3.  One clinically high-quality execution is
@@ -33,6 +33,16 @@ from kimore_tracking_diagnostic import shoulder_yaw_degrees
 
 FEATURE_NAME = "shoulder_axis_yaw_degrees"
 MIN_REFERENCE_SHOULDER_TRACKED_FRACTION = 0.99
+SUPPORTED_EXERCISE = "Es3"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def portable_project_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return str(resolved)
 
 
 @dataclass(frozen=True)
@@ -225,6 +235,11 @@ def run_first_fold(
     output_dir: Path,
     figure_dir: Path,
 ) -> dict[str, object]:
+    if exercise.casefold() != SUPPORTED_EXERCISE.casefold():
+        raise ValueError(
+            f"The shoulder-yaw plain-DTW method is defined only for "
+            f"{SUPPORTED_EXERCISE}, not {exercise}"
+        )
     samples, excluded = read_manifest(manifest_path, exercise)
     if len(samples) < 2:
         raise ValueError("The plain-DTW baseline needs at least two usable samples")
@@ -348,12 +363,13 @@ def run_first_fold(
         "closest_test_distance": float(distances[good_index]),
         "most_distant_test_sample_id": prepared_samples[poor_index].sample.sample_id,
         "most_distant_test_distance": float(distances[poor_index]),
-        "prediction_csv": str(prediction_path.resolve()),
-        "closest_alignment_plot": str(good_plot_path.resolve()),
-        "most_distant_alignment_plot": str(poor_plot_path.resolve()),
+        "prediction_csv": portable_project_path(prediction_path),
+        "closest_alignment_plot": portable_project_path(good_plot_path),
+        "most_distant_alignment_plot": portable_project_path(poor_plot_path),
         "evaluation_note": (
-            "This is a one-fold pipeline check, not the final performance estimate. "
-            "Final evaluation will aggregate out-of-fold predictions from all five subject-wise folds."
+            "Historical one-fold development preview, inspected while the reference "
+            "quality rule was selected; it is not an untouched performance estimate. "
+            "Use the five-fold outputs for the internal development result."
         ),
     }
     metadata_path = output_dir / "fold_1_metadata.json"
@@ -380,7 +396,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--exercise",
         default="Es3",
-        choices=[f"Es{i}" for i in range(1, 6)],
+        choices=["Es3"],
+        help="Exercise supported by the frozen shoulder-yaw method (Es3 only)",
     )
     parser.add_argument(
         "--output-dir",

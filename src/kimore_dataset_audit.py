@@ -97,8 +97,10 @@ MANIFEST_FIELDS = (
     "position_path",
     "orientation_path",
     "timestamp_path",
+    "position_target_usable",
     "status",
     "issues",
+    "warnings",
 )
 
 
@@ -189,21 +191,20 @@ def find_exactly_one(folder: Path, pattern: str, issues: list[str]) -> Path | No
     return None
 
 
-def read_subject_scores(subject_dir: Path) -> tuple[dict[tuple[str, int], float], list[str]]:
-    issues: list[str] = []
-    workbooks = sorted(subject_dir.glob("Es*/Label/ClinicalAssessment_*.xlsx"))
-    if not workbooks:
-        return {}, ["missing clinical assessment workbook"]
-
-    # The same subject-level workbook is normally repeated in every exercise
-    # folder and contains TS, PO, and CF values for all five exercises.
-    workbook_path = workbooks[0]
+def _read_scores_from_workbook(
+    workbook_path: Path,
+) -> tuple[dict[tuple[str, int], float], dict[int, list[str]]]:
+    """Read all score fields while keeping problems local to their exercise."""
+    issues_by_exercise: dict[int, list[str]] = {
+        exercise: [] for exercise in range(1, 6)
+    }
     workbook = load_workbook(workbook_path, data_only=True, read_only=True)
     sheet = workbook.active
     values = list(sheet.iter_rows(values_only=True))
     workbook.close()
     if len(values) < 2:
-        return {}, [f"clinical workbook has fewer than two rows: {workbook_path}"]
+        message = f"clinical workbook has fewer than two rows: {workbook_path}"
+        return {}, {exercise: [message] for exercise in range(1, 6)}
 
     headers = values[0]
     data = values[1]
@@ -218,17 +219,79 @@ def read_subject_scores(subject_dir: Path) -> tuple[dict[tuple[str, int], float]
         exercise = int(match.group(2))
         value = data[index] if index < len(data) else None
         if value is None:
-            issues.append(f"missing {kind.upper()} score for Es{exercise}")
+            issues_by_exercise[exercise].append(
+                f"missing {kind.upper()} score for Es{exercise}"
+            )
             continue
         try:
             scores[(kind, exercise)] = float(value)
         except (TypeError, ValueError):
-            issues.append(f"nonnumeric {kind.upper()} score for Es{exercise}: {value!r}")
+            issues_by_exercise[exercise].append(
+                f"nonnumeric {kind.upper()} score for Es{exercise}: {value!r}"
+            )
 
     for exercise in range(1, 6):
         if ("ts", exercise) not in scores:
-            issues.append(f"TS score not found for Es{exercise}")
-    return scores, issues
+            issues_by_exercise[exercise].append(f"TS score not found for Es{exercise}")
+    return scores, issues_by_exercise
+
+
+def read_subject_scores(
+    subject_dir: Path,
+) -> tuple[dict[tuple[str, int], float], dict[int, list[str]], list[str]]:
+    """Read consistent, correctly named workbook copies for one subject.
+
+    KIMORE normally repeats the same subject-level workbook below every
+    exercise.  A misfiled workbook from another subject must never become the
+    target source merely because its path sorts first.
+    """
+    workbooks = sorted(subject_dir.glob("Es*/Label/ClinicalAssessment_*.xlsx"))
+    if not workbooks:
+        issue = "missing clinical assessment workbook"
+        return {}, {exercise: [issue] for exercise in range(1, 6)}, []
+
+    expected_filename = f"ClinicalAssessment_{subject_dir.name}.xlsx"
+    expected_pattern = re.compile(
+        rf"^ClinicalAssessment_{re.escape(subject_dir.name)}(?:\(\d+\))?\.xlsx$",
+        re.IGNORECASE,
+    )
+    expected_workbooks = [
+        path for path in workbooks if expected_pattern.fullmatch(path.name)
+    ]
+    unexpected_workbooks = [
+        path for path in workbooks if not expected_pattern.fullmatch(path.name)
+    ]
+    warnings_found: list[str] = []
+    if unexpected_workbooks:
+        relative_paths = ", ".join(
+            str(path.relative_to(subject_dir)) for path in unexpected_workbooks
+        )
+        warnings_found.append(
+            "unexpected clinical workbook filename(s), ignored: " + relative_paths
+        )
+    if not expected_workbooks:
+        issue = f"missing correctly named {expected_filename} workbook"
+        return {}, {exercise: [issue] for exercise in range(1, 6)}, warnings_found
+
+    parsed = [_read_scores_from_workbook(path) for path in expected_workbooks]
+    canonical_scores, canonical_issues = parsed[0]
+    if any(scores != canonical_scores for scores, _ in parsed[1:]):
+        relative_paths = ", ".join(
+            str(path.relative_to(subject_dir)) for path in expected_workbooks
+        )
+        issue = "conflicting correctly named clinical workbook copies: " + relative_paths
+        return {}, {exercise: [issue] for exercise in range(1, 6)}, warnings_found
+
+    issues_by_exercise = {
+        exercise: list(canonical_issues[exercise]) for exercise in range(1, 6)
+    }
+    for _, workbook_issues in parsed[1:]:
+        for exercise in range(1, 6):
+            issues_by_exercise[exercise].extend(workbook_issues[exercise])
+            issues_by_exercise[exercise] = list(
+                dict.fromkeys(issues_by_exercise[exercise])
+            )
+    return canonical_scores, issues_by_exercise, warnings_found
 
 
 def audit_exercise(
@@ -237,12 +300,13 @@ def audit_exercise(
     cohort: str,
     exercise_number: int,
     scores: dict[tuple[str, int], float],
-    subject_score_issues: Iterable[str],
+    exercise_score_issues: Iterable[str],
+    subject_warnings: Iterable[str],
 ) -> dict[str, object]:
     exercise_name = f"Es{exercise_number}"
     exercise_dir = subject_dir / exercise_name
     raw_dir = exercise_dir / "Raw"
-    issues = list(subject_score_issues)
+    issues = list(exercise_score_issues)
 
     if not exercise_dir.exists():
         issues.append(f"missing {exercise_name} folder")
@@ -287,6 +351,15 @@ def audit_exercise(
     if ("ts", exercise_number) not in scores:
         issues.append("missing target TS score")
 
+    position_target_usable = bool(
+        ("ts", exercise_number) in scores
+        and position is not None
+        and position.rows > 0
+        and position.columns == 100
+        and position.inconsistent_rows == 0
+        and position.nonnumeric_rows == 0
+    )
+
     return {
         "sample_id": f"{subject_id}_{exercise_name}",
         "subject_id": subject_id,
@@ -303,8 +376,10 @@ def audit_exercise(
         "position_path": str(position_path.resolve()) if position_path else "",
         "orientation_path": str(orientation_path.resolve()) if orientation_path else "",
         "timestamp_path": str(timestamp_path.resolve()) if timestamp_path else "",
+        "position_target_usable": str(position_target_usable).lower(),
         "status": "ok" if not issues else "problem",
         "issues": "; ".join(dict.fromkeys(issues)),
+        "warnings": "; ".join(dict.fromkeys(subject_warnings)),
     }
 
 
@@ -322,7 +397,9 @@ def build_manifest(root: Path) -> list[dict[str, object]]:
         assert match is not None
         prefix = match.group(1).upper()
         subject_id = subject_dir.name.upper()
-        scores, score_issues = read_subject_scores(subject_dir)
+        scores, score_issues_by_exercise, subject_warnings = read_subject_scores(
+            subject_dir
+        )
         for exercise_number in range(1, 6):
             rows.append(
                 audit_exercise(
@@ -331,7 +408,8 @@ def build_manifest(root: Path) -> list[dict[str, object]]:
                     COHORTS[prefix],
                     exercise_number,
                     scores,
-                    score_issues,
+                    score_issues_by_exercise[exercise_number],
+                    subject_warnings,
                 )
             )
     return rows
@@ -354,6 +432,16 @@ def write_summary(rows: list[dict[str, object]], path: Path) -> None:
     exercise_counts = Counter(
         str(row["exercise"]) for row in rows if row["status"] == "ok"
     )
+    usable_position_counts = Counter(
+        str(row["exercise"])
+        for row in rows
+        if str(row["position_target_usable"]).casefold() == "true"
+    )
+    warnings_by_subject = {
+        str(row["subject_id"]): str(row["warnings"])
+        for row in rows
+        if row.get("warnings")
+    }
     scores_by_exercise: dict[str, list[float]] = {}
     for row in rows:
         value = row["clinical_ts"]
@@ -365,17 +453,22 @@ def write_summary(rows: list[dict[str, object]], path: Path) -> None:
         "====================",
         f"Subjects found: {len(subjects)}",
         f"Subject/exercise rows: {len(rows)}",
-        f"Rows marked OK: {status_counts['ok']}",
-        f"Rows with problems: {status_counts['problem']}",
+        f"Rows fully OK: {status_counts['ok']}",
+        f"Rows with audit problems: {status_counts['problem']}",
+        f"Subjects with non-blocking warnings: {len(warnings_by_subject)}",
         "",
         "Subjects by cohort:",
     ]
     for cohort in sorted(cohort_subjects):
         lines.append(f"  {cohort}: {len(cohort_subjects[cohort])}")
 
-    lines.extend(["", "Valid recordings by exercise:"])
+    lines.extend(["", "Fully OK recordings by exercise:"])
     for exercise in ("Es1", "Es2", "Es3", "Es4", "Es5"):
         lines.append(f"  {exercise}: {exercise_counts[exercise]}")
+
+    lines.extend(["", "Position+target usable recordings by exercise:"])
+    for exercise in ("Es1", "Es2", "Es3", "Es4", "Es5"):
+        lines.append(f"  {exercise}: {usable_position_counts[exercise]}")
 
     lines.extend(["", "Clinical TS score distribution by exercise:"])
     for exercise in ("Es1", "Es2", "Es3", "Es4", "Es5"):
@@ -397,6 +490,13 @@ def write_summary(rows: list[dict[str, object]], path: Path) -> None:
     else:
         for row in problem_rows:
             lines.append(f"  {row['sample_id']}: {row['issues']}")
+
+    lines.extend(["", "Warnings:"])
+    if not warnings_by_subject:
+        lines.append("  None detected.")
+    else:
+        for subject_id, warning in sorted(warnings_by_subject.items()):
+            lines.append(f"  {subject_id}: {warning}")
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

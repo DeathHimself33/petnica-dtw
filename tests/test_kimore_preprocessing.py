@@ -16,6 +16,7 @@ from kimore_dataset import (  # noqa: E402
     JOINT_INDEX,
     JOINT_NAMES,
     JointSequence,
+    explain_position_exclusion,
     load_joint_positions,
 )
 from kimore_preprocessing import preprocess_sequence  # noqa: E402
@@ -67,6 +68,18 @@ class LoaderValidationTests(unittest.TestCase):
         path = self.write_recording(2.0, coordinate=float("nan"))
         with self.assertRaisesRegex(ValueError, r"non-finite coordinates"):
             load_joint_positions(path)
+
+    def test_manifest_rejects_audited_nonnumeric_position_rows(self) -> None:
+        reason = explain_position_exclusion(
+            {
+                "clinical_ts": "40",
+                "position_path": "JointPosition.csv",
+                "position_frames": "10",
+                "position_columns": "100",
+                "issues": "position has 1 nonnumeric rows",
+            }
+        )
+        self.assertEqual(reason, "JointPosition contains nonnumeric rows")
 
 
 class PreprocessingTests(unittest.TestCase):

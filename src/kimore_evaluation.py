@@ -6,6 +6,7 @@ import csv
 import hashlib
 import json
 import platform
+import subprocess
 from collections import Counter
 from pathlib import Path
 from typing import Callable, Sequence
@@ -13,13 +14,15 @@ from typing import Callable, Sequence
 import matplotlib
 import numpy as np
 import scipy
+import sklearn
 from scipy.stats import pearsonr, spearmanr
 
-from kimore_dataset import read_manifest
+from kimore_dataset import KimoreSample, read_manifest
 from kimore_grouping import assert_no_subject_leakage, make_subject_folds, subject_groups
 from kimore_plain_dtw import (
     FEATURE_NAME,
     MIN_REFERENCE_SHOULDER_TRACKED_FRACTION,
+    SUPPORTED_EXERCISE,
     PreparedSample,
     fit_linear_calibration,
     prepare_sample,
@@ -30,6 +33,7 @@ from kimore_dtw import DtwAlignment, exact_dtw
 
 METRIC_NAMES = ("mae", "rmse", "spearman", "pearson")
 BOOTSTRAP_SEED = 20260825
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def regression_metrics(actual: np.ndarray, predicted: np.ndarray) -> dict[str, float]:
@@ -78,6 +82,40 @@ def training_constant_values(
     return float(np.median(training_scores)), float(np.mean(training_scores))
 
 
+def training_cohort_constant_values(
+    scores: np.ndarray,
+    cohorts: Sequence[str],
+    train_indices: Sequence[int],
+    test_indices: Sequence[int],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return training-only cohort constants for each requested test row."""
+    values = np.asarray(scores, dtype=np.float64)
+    cohort_values = np.asarray(cohorts, dtype=object)
+    train = np.asarray(train_indices, dtype=int)
+    test = np.asarray(test_indices, dtype=int)
+    if values.ndim != 1 or len(values) != len(cohort_values):
+        raise ValueError("Cohort baselines need one cohort for every score")
+    if len(train) == 0 or len(test) == 0:
+        raise ValueError("Cohort baselines need non-empty training and test indices")
+    if np.any(train < 0) or np.any(test < 0) or np.any(train >= len(values)) or np.any(
+        test >= len(values)
+    ):
+        raise IndexError("Cohort baseline index is outside the score array")
+
+    medians: list[float] = []
+    means: list[float] = []
+    for index in test:
+        matching_train = train[cohort_values[train] == cohort_values[index]]
+        if len(matching_train) == 0:
+            raise ValueError(
+                f"No training subject from test cohort {cohort_values[index]!r}"
+            )
+        cohort_scores = values[matching_train]
+        medians.append(float(np.median(cohort_scores)))
+        means.append(float(np.mean(cohort_scores)))
+    return np.asarray(medians), np.asarray(means)
+
+
 def validate_oof_indices(test_indices_by_fold: Sequence[Sequence[int]], sample_count: int) -> None:
     """Require every sample index to occur in exactly one outer test fold."""
     flattened = [int(index) for fold_indices in test_indices_by_fold for index in fold_indices]
@@ -111,7 +149,7 @@ def bootstrap_metric_intervals(
     resamples: int,
     seed: int = BOOTSTRAP_SEED,
 ) -> dict[str, dict[str, float | int | None]]:
-    """Return paired subject-bootstrap percentile intervals for all metrics."""
+    """Return conditional fixed-prediction subject-bootstrap intervals."""
     if resamples < 1:
         raise ValueError("Bootstrap resamples must be at least 1")
     y_true = np.asarray(actual, dtype=np.float64)
@@ -156,7 +194,7 @@ def bootstrap_improvement_intervals(
     resamples: int,
     seed: int = BOOTSTRAP_SEED + 1,
 ) -> dict[str, dict[str, float | int]]:
-    """Bootstrap error reduction versus the appropriate constant baseline."""
+    """Bootstrap fixed-prediction error reduction versus constant baselines."""
     y_true = np.asarray(actual, dtype=np.float64)
     model = np.asarray(model_predictions, dtype=np.float64)
     median_baseline = np.asarray(median_predictions, dtype=np.float64)
@@ -361,6 +399,148 @@ def _manifest_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _experiment_inputs_sha256(samples: Sequence[KimoreSample]) -> str:
+    """Hash the target metadata and raw position bytes used by the experiment."""
+    digest = hashlib.sha256()
+    for sample in samples:
+        position_digest = hashlib.sha256()
+        with sample.position_path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                position_digest.update(chunk)
+        metadata = {
+            "sample_id": sample.sample_id,
+            "subject_id": sample.subject_id,
+            "cohort": sample.cohort,
+            "exercise": sample.exercise,
+            "score": format(sample.score, ".17g"),
+            "frames": sample.frames,
+            "position_sha256": position_digest.hexdigest(),
+        }
+        digest.update(
+            json.dumps(metadata, sort_keys=True, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        )
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def _portable_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
+def _source_code_sha256() -> str:
+    """Hash the executable project source even when the Git tree is dirty."""
+    paths = [PROJECT_ROOT / "run_experiment.py", PROJECT_ROOT / "requirements.txt"]
+    paths.extend(sorted((PROJECT_ROOT / "src").glob("*.py")))
+    digest = hashlib.sha256()
+    for path in sorted(
+        paths,
+        key=lambda item: item.relative_to(PROJECT_ROOT).as_posix(),
+    ):
+        relative = path.relative_to(PROJECT_ROOT).as_posix()
+        file_digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        digest.update(f"{relative}\0{file_digest}\n".encode("utf-8"))
+    return digest.hexdigest()
+
+
+def _git_revision() -> str | None:
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(PROJECT_ROOT),
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        ).stdout.strip()
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=str(PROJECT_ROOT),
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return commit + ("+dirty" if dirty else "")
+
+
+def alignment_warp_diagnostics(
+    sample_frames: int,
+    reference_frames: int,
+    path_length: int,
+) -> dict[str, float]:
+    """Summarize how much an exact DTW path departs from diagonal matching."""
+    if sample_frames < 1 or reference_frames < 1 or path_length < 1:
+        raise ValueError("Frame counts and path length must be positive")
+    minimum_path = max(sample_frames, reference_frames)
+    maximum_path = sample_frames + reference_frames - 1
+    if not minimum_path <= path_length <= maximum_path:
+        raise ValueError("DTW path length is inconsistent with the sequence lengths")
+
+    moves = path_length - 1
+    non_diagonal_moves = 2 * path_length - sample_frames - reference_frames
+    longer_sequence_moves = max(sample_frames, reference_frames) - 1
+    return {
+        "non_diagonal_step_fraction": (
+            float(non_diagonal_moves / moves) if moves else 0.0
+        ),
+        "minimum_required_non_diagonal_step_fraction": (
+            float(abs(sample_frames - reference_frames) / longer_sequence_moves)
+            if longer_sequence_moves
+            else 0.0
+        ),
+        "path_length_over_longer_sequence": float(path_length / minimum_path),
+    }
+
+
+def post_hoc_cohort_diagnostics(
+    actual: np.ndarray,
+    predicted: np.ndarray,
+    cohorts: Sequence[str],
+) -> dict[str, object]:
+    """Describe pooled cohort structure without changing the frozen model."""
+    y_true = np.asarray(actual, dtype=np.float64)
+    y_pred = np.asarray(predicted, dtype=np.float64)
+    cohort_values = np.asarray(cohorts, dtype=object)
+    if len(y_true) != len(y_pred) or len(y_true) != len(cohort_values):
+        raise ValueError("Cohort diagnostics need equally sized arrays")
+
+    centered_actual = np.empty_like(y_true)
+    centered_predicted = np.empty_like(y_pred)
+    per_cohort: dict[str, object] = {}
+    for cohort in sorted(set(cohort_values)):
+        mask = cohort_values == cohort
+        cohort_actual = y_true[mask]
+        cohort_predicted = y_pred[mask]
+        metrics = regression_metrics(cohort_actual, cohort_predicted)
+        per_cohort[str(cohort)] = {
+            "subjects": int(mask.sum()),
+            "mean_bias_predicted_minus_actual": float(
+                np.mean(cohort_predicted - cohort_actual)
+            ),
+            "mae": metrics["mae"],
+            "spearman": metrics["spearman"],
+            "pearson": metrics["pearson"],
+        }
+        centered_actual[mask] = cohort_actual - np.mean(cohort_actual)
+        centered_predicted[mask] = cohort_predicted - np.mean(cohort_predicted)
+
+    centered_metrics = regression_metrics(centered_actual, centered_predicted)
+    return {
+        "status": "post_hoc_descriptive_diagnostic",
+        "per_cohort": per_cohort,
+        "within_cohort_mean_centered_spearman": centered_metrics["spearman"],
+        "within_cohort_mean_centered_pearson": centered_metrics["pearson"],
+    }
+
+
 def run_cross_validated_evaluation(
     manifest_path: Path,
     exercise: str,
@@ -370,6 +550,13 @@ def run_cross_validated_evaluation(
     progress: Callable[[str], None] = print,
 ) -> dict[str, object]:
     """Run the frozen five-fold baseline and save complete OOF evaluation artifacts."""
+    if exercise.casefold() != SUPPORTED_EXERCISE.casefold():
+        raise ValueError(
+            f"The shoulder-yaw plain-DTW method is defined only for "
+            f"{SUPPORTED_EXERCISE}, not {exercise}"
+        )
+    if bootstrap_resamples < 1:
+        raise ValueError("Bootstrap resamples must be at least 1")
     samples, excluded = read_manifest(manifest_path, exercise)
     folds = make_subject_folds(samples, n_splits=5)
     groups = subject_groups(samples)
@@ -383,6 +570,7 @@ def run_cross_validated_evaluation(
             progress(f"  prepared {number}/{len(samples)}")
 
     scores = np.asarray([sample.score for sample in samples], dtype=np.float64)
+    cohorts = np.asarray([sample.cohort for sample in samples], dtype=object)
     prediction_rows: list[dict[str, object]] = []
     metric_rows: list[dict[str, object]] = []
     fold_metadata: list[dict[str, object]] = []
@@ -422,6 +610,14 @@ def run_cross_validated_evaluation(
         median_value, mean_value = training_constant_values(scores, fold.train_indices)
         median_predictions = np.full(len(fold.test_indices), median_value)
         mean_predictions = np.full(len(fold.test_indices), mean_value)
+        cohort_median_predictions, cohort_mean_predictions = (
+            training_cohort_constant_values(
+                scores,
+                cohorts,
+                fold.train_indices,
+                fold.test_indices,
+            )
+        )
         fold_actual = scores[fold.test_indices]
 
         metric_rows.extend(
@@ -447,6 +643,20 @@ def run_cross_validated_evaluation(
                     mean_predictions,
                     include_correlations=False,
                 ),
+                _metrics_row(
+                    f"fold_{fold.number}",
+                    "post_hoc_training_cohort_median_constant",
+                    fold_actual,
+                    cohort_median_predictions,
+                    include_correlations=False,
+                ),
+                _metrics_row(
+                    f"fold_{fold.number}",
+                    "post_hoc_training_cohort_mean_constant",
+                    fold_actual,
+                    cohort_mean_predictions,
+                    include_correlations=False,
+                ),
             )
         )
 
@@ -465,6 +675,11 @@ def run_cross_validated_evaluation(
                 "reference_subject_id": reference.sample.subject_id,
                 "reference_actual_ts": reference.sample.score,
                 "reference_shoulder_tracked_fraction": reference.shoulder_tracked_fraction,
+                "reference_threshold_candidate_count": sum(
+                    prepared_samples[int(index)].shoulder_tracked_fraction
+                    >= MIN_REFERENCE_SHOULDER_TRACKED_FRACTION
+                    for index in fold.train_indices
+                ),
                 "calibration_intercept": calibration.intercept,
                 "calibration_slope": calibration.slope,
                 "training_median_ts": median_value,
@@ -477,6 +692,13 @@ def run_cross_validated_evaluation(
             sample_index = int(sample_index_value)
             prepared = prepared_samples[sample_index]
             alignment = alignments[sample_index]
+            warp = alignment_warp_diagnostics(
+                len(prepared.feature),
+                len(reference.feature),
+                len(alignment.path),
+            )
+            sample_initial_yaw = float(np.median(prepared.feature[:30, 0]))
+            reference_initial_yaw = float(np.median(reference.feature[:30, 0]))
             prediction_rows.append(
                 {
                     "fold": fold.number,
@@ -487,9 +709,30 @@ def run_cross_validated_evaluation(
                     "predicted_ts": float(fold_predictions[position]),
                     "training_median_baseline_ts": median_value,
                     "training_mean_baseline_ts": mean_value,
+                    "post_hoc_training_cohort_median_baseline_ts": float(
+                        cohort_median_predictions[position]
+                    ),
+                    "post_hoc_training_cohort_mean_baseline_ts": float(
+                        cohort_mean_predictions[position]
+                    ),
                     "dtw_aligned_rmse_degrees": alignment.aligned_rmse,
                     "frames": len(prepared.feature),
+                    "reference_frames": len(reference.feature),
                     "alignment_path_length": len(alignment.path),
+                    "alignment_non_diagonal_step_fraction": warp[
+                        "non_diagonal_step_fraction"
+                    ],
+                    "minimum_required_non_diagonal_step_fraction": warp[
+                        "minimum_required_non_diagonal_step_fraction"
+                    ],
+                    "alignment_path_length_over_longer_sequence": warp[
+                        "path_length_over_longer_sequence"
+                    ],
+                    "initial_30_frame_yaw_median_degrees": sample_initial_yaw,
+                    "reference_initial_30_frame_yaw_median_degrees": reference_initial_yaw,
+                    "initial_window_absolute_yaw_offset_degrees": abs(
+                        sample_initial_yaw - reference_initial_yaw
+                    ),
                     "feature": FEATURE_NAME,
                     "reference_sample_id": reference.sample.sample_id,
                     "reference_subject_id": reference.sample.subject_id,
@@ -519,10 +762,27 @@ def run_cross_validated_evaluation(
         [row["training_mean_baseline_ts"] for row in prediction_rows],
         dtype=float,
     )
+    cohort_median_baseline = np.asarray(
+        [
+            row["post_hoc_training_cohort_median_baseline_ts"]
+            for row in prediction_rows
+        ],
+        dtype=float,
+    )
+    cohort_mean_baseline = np.asarray(
+        [
+            row["post_hoc_training_cohort_mean_baseline_ts"]
+            for row in prediction_rows
+        ],
+        dtype=float,
+    )
     oof_groups = [str(row["subject_id"]) for row in prediction_rows]
+    oof_cohorts = [str(row["cohort"]) for row in prediction_rows]
     overall_metrics = regression_metrics(actual, predicted)
     median_metrics = regression_metrics(actual, median_baseline)
     mean_metrics = regression_metrics(actual, mean_baseline)
+    cohort_median_metrics = regression_metrics(actual, cohort_median_baseline)
+    cohort_mean_metrics = regression_metrics(actual, cohort_mean_baseline)
     metric_rows.extend(
         (
             _metrics_row("overall", "plain_dtw", actual, predicted, True),
@@ -540,10 +800,26 @@ def run_cross_validated_evaluation(
                 mean_baseline,
                 False,
             ),
+            _metrics_row(
+                "overall",
+                "post_hoc_training_cohort_median_constant",
+                actual,
+                cohort_median_baseline,
+                False,
+            ),
+            _metrics_row(
+                "overall",
+                "post_hoc_training_cohort_mean_constant",
+                actual,
+                cohort_mean_baseline,
+                False,
+            ),
         )
     )
 
-    progress(f"Bootstrapping {bootstrap_resamples} subject-level resamples...")
+    progress(
+        f"Bootstrapping {bootstrap_resamples} fixed-OOF subject-level resamples..."
+    )
     intervals = bootstrap_metric_intervals(
         actual,
         predicted,
@@ -558,6 +834,54 @@ def run_cross_validated_evaluation(
         oof_groups,
         bootstrap_resamples,
     )
+    cohort_improvements_raw = bootstrap_improvement_intervals(
+        actual,
+        predicted,
+        cohort_median_baseline,
+        cohort_mean_baseline,
+        oof_groups,
+        bootstrap_resamples,
+    )
+    cohort_improvements = {
+        "mae_reduction_vs_training_cohort_median": cohort_improvements_raw[
+            "mae_reduction_vs_training_median"
+        ],
+        "rmse_reduction_vs_training_cohort_mean": cohort_improvements_raw[
+            "rmse_reduction_vs_training_mean"
+        ],
+    }
+
+    non_diagonal_fractions = np.asarray(
+        [row["alignment_non_diagonal_step_fraction"] for row in prediction_rows],
+        dtype=float,
+    )
+    minimum_non_diagonal_fractions = np.asarray(
+        [
+            row["minimum_required_non_diagonal_step_fraction"]
+            for row in prediction_rows
+        ],
+        dtype=float,
+    )
+    path_length_ratios = np.asarray(
+        [
+            row["alignment_path_length_over_longer_sequence"]
+            for row in prediction_rows
+        ],
+        dtype=float,
+    )
+    initial_yaw = np.asarray(
+        [row["initial_30_frame_yaw_median_degrees"] for row in prediction_rows],
+        dtype=float,
+    )
+    initial_offsets = np.asarray(
+        [row["initial_window_absolute_yaw_offset_degrees"] for row in prediction_rows],
+        dtype=float,
+    )
+    distances = np.asarray(
+        [row["dtw_aligned_rmse_degrees"] for row in prediction_rows],
+        dtype=float,
+    )
+    absolute_errors = np.abs(predicted - actual)
 
     predictions_path = output_dir / "oof_predictions.csv"
     metrics_path = output_dir / "metrics.csv"
@@ -567,6 +891,8 @@ def run_cross_validated_evaluation(
     _write_csv(prediction_rows, predictions_path)
     _write_csv(metric_rows, metrics_path)
     _write_json({"folds": fold_metadata}, fold_metadata_path)
+    progress("Hashing the exact Es3 targets and JointPosition inputs...")
+    experiment_inputs_sha256 = _experiment_inputs_sha256(samples)
 
     summary: dict[str, object] = {
         "method": "plain_dtw",
@@ -595,27 +921,117 @@ def run_cross_validated_evaluation(
             "mae": mean_metrics["mae"],
             "rmse": mean_metrics["rmse"],
         },
+        "post_hoc_training_cohort_constants": {
+            "status": (
+                "post hoc comparator added after inspecting the frozen OOF result; "
+                "constants still use outer-training rows only"
+            ),
+            "cohort_median": {
+                "mae": cohort_median_metrics["mae"],
+                "rmse": cohort_median_metrics["rmse"],
+            },
+            "cohort_mean": {
+                "mae": cohort_mean_metrics["mae"],
+                "rmse": cohort_mean_metrics["rmse"],
+            },
+            "paired_fixed_prediction_bootstrap_improvements": cohort_improvements,
+        },
+        "post_hoc_cohort_diagnostics": post_hoc_cohort_diagnostics(
+            actual, predicted, oof_cohorts
+        ),
+        "post_hoc_dtw_warp_diagnostics": {
+            "status": "post_hoc_descriptive_diagnostic",
+            "median_non_diagonal_step_fraction": float(
+                np.median(non_diagonal_fractions)
+            ),
+            "maximum_non_diagonal_step_fraction": float(
+                np.max(non_diagonal_fractions)
+            ),
+            "median_minimum_required_non_diagonal_step_fraction": float(
+                np.median(minimum_non_diagonal_fractions)
+            ),
+            "median_excess_non_diagonal_step_fraction": float(
+                np.median(
+                    non_diagonal_fractions - minimum_non_diagonal_fractions
+                )
+            ),
+            "median_path_length_over_longer_sequence": float(
+                np.median(path_length_ratios)
+            ),
+            "minimum_path_length_over_longer_sequence": float(
+                np.min(path_length_ratios)
+            ),
+            "maximum_path_length_over_longer_sequence": float(
+                np.max(path_length_ratios)
+            ),
+            "interpretation": (
+                "Unconstrained paths use many horizontal/vertical steps and may "
+                "hide missing repetitions, extra repetitions, idle periods or "
+                "irregular timing. This is a limitation, not an implementation error."
+            ),
+        },
+        "post_hoc_initial_window_diagnostic": {
+            "status": "post_hoc_descriptive_diagnostic",
+            "window_frames": 30,
+            "sample_yaw_median_min_degrees": float(np.min(initial_yaw)),
+            "sample_yaw_median_max_degrees": float(np.max(initial_yaw)),
+            "sample_reference_absolute_offset_median_degrees": float(
+                np.median(initial_offsets)
+            ),
+            "sample_reference_absolute_offset_95th_percentile_degrees": float(
+                np.percentile(initial_offsets, 95.0)
+            ),
+            "sample_reference_absolute_offset_max_degrees": float(
+                np.max(initial_offsets)
+            ),
+            "offset_spearman_with_dtw_distance": float(
+                spearmanr(initial_offsets, distances).correlation
+            ),
+            "offset_spearman_with_absolute_prediction_error": float(
+                spearmanr(initial_offsets, absolute_errors).correlation
+            ),
+            "interpretation": (
+                "The untrimmed absolute yaw feature may mix movement phase, resting "
+                "orientation and acquisition setup; this diagnostic cannot identify "
+                "which cause dominates."
+            ),
+        },
         "plain_dtw_bootstrap_95_percent_intervals": intervals,
         "paired_bootstrap_improvements": improvements,
+        "bootstrap_scope": (
+            "conditional fixed-OOF-prediction subject bootstrap; folds, reference "
+            "selection, calibration and method choices are not refitted"
+        ),
         "bootstrap_resamples": bootstrap_resamples,
         "bootstrap_seed": BOOTSTRAP_SEED,
-        "manifest_path": str(manifest_path.resolve()),
+        "manifest_path": _portable_path(manifest_path),
         "manifest_sha256": _manifest_sha256(manifest_path),
+        "manifest_hash_note": (
+            "The manifest includes local absolute paths and is not portable; use "
+            "experiment_inputs_sha256 to compare the actual targets and position data."
+        ),
+        "experiment_inputs_sha256": experiment_inputs_sha256,
+        "source_git_revision": _git_revision(),
+        "source_code_sha256": _source_code_sha256(),
         "outputs": {
-            "predictions": str(predictions_path.resolve()),
-            "metrics": str(metrics_path.resolve()),
-            "fold_metadata": str(fold_metadata_path.resolve()),
-            "diagnostic_plot": str(plot_path.resolve()),
+            "predictions": _portable_path(predictions_path),
+            "metrics": _portable_path(metrics_path),
+            "fold_metadata": _portable_path(fold_metadata_path),
+            "diagnostic_plot": _portable_path(plot_path),
         },
         "environment": {
             "python": platform.python_version(),
             "numpy": np.__version__,
             "scipy": scipy.__version__,
             "matplotlib": matplotlib.__version__,
+            "scikit_learn": sklearn.__version__,
         },
         "interpretation": (
-            "Internal development cross-validation on KIMORE. Fold 1 informed "
-            "pipeline inspection before the rule was frozen; this is not external validation."
+            "Subject-disjoint internal development cross-validation on KIMORE, "
+            "with fold-specific fitting restricted to outer-training rows. Fold 1 "
+            "informed pipeline inspection and the feature, exercise and preprocessing "
+            "were developed on this dataset; these predictions are neither untouched "
+            "confirmatory evaluation nor external validation."
         ),
     }
     _write_json(summary, summary_path)

@@ -8,6 +8,7 @@
       "reference_sample_id": "E_ID7_Es3",
       "reference_shoulder_tracked_fraction": 0.9989293361884368,
       "reference_subject_id": "E_ID7",
+      "reference_threshold_candidate_count": 8,
       "subject_overlap": 0,
       "test_cohort_counts": {
         "back_pain": 2,
@@ -35,6 +36,7 @@
       "reference_sample_id": "E_ID7_Es3",
       "reference_shoulder_tracked_fraction": 0.9989293361884368,
       "reference_subject_id": "E_ID7",
+      "reference_threshold_candidate_count": 7,
       "subject_overlap": 0,
       "test_cohort_counts": {
         "back_pain": 1,
@@ -62,6 +64,7 @@
       "reference_sample_id": "E_ID7_Es3",
       "reference_shoulder_tracked_fraction": 0.9989293361884368,
       "reference_subject_id": "E_ID7",
+      "reference_threshold_candidate_count": 7,
       "subject_overlap": 0,
       "test_cohort_counts": {
         "back_pain": 2,
@@ -89,6 +92,7 @@
       "reference_sample_id": "NE_ID13_Es3",
       "reference_shoulder_tracked_fraction": 1.0,
       "reference_subject_id": "NE_ID13",
+      "reference_threshold_candidate_count": 5,
       "subject_overlap": 0,
       "test_cohort_counts": {
         "back_pain": 2,
@@ -116,6 +120,7 @@
       "reference_sample_id": "E_ID7_Es3",
       "reference_shoulder_tracked_fraction": 0.9989293361884368,
       "reference_subject_id": "E_ID7",
+      "reference_threshold_candidate_count": 5,
       "subject_overlap": 0,
       "test_cohort_counts": {
         "back_pain": 1,
