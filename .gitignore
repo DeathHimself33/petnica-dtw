@@ -40,21 +40,6 @@ desktop.ini
 /results/
 /figures/
 
-# Keep the compact final plain-DTW evaluation artifacts reproducible in Git
-!/results/
-/results/*
-!/results/plain_dtw/
-/results/plain_dtw/*
-!/results/plain_dtw/oof_predictions.csv
-!/results/plain_dtw/metrics.csv
-!/results/plain_dtw/fold_metadata.json
-!/results/plain_dtw/evaluation_summary.json
-!/figures/
-/figures/*
-!/figures/plain_dtw/
-/figures/plain_dtw/*
-!/figures/plain_dtw/actual_vs_predicted.png
-
 kimore_manifest.csv
 kimore_audit_summary.txt
 kimore_scale_diagnostics.csv
