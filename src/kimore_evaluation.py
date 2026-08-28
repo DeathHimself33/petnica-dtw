@@ -288,6 +288,7 @@ def save_prediction_plot(
     metrics: dict[str, float],
     intervals: dict[str, dict[str, float | int | None]],
     output_path: Path,
+    title: str = "Plain DTW: five-fold subject-wise out-of-fold predictions",
 ) -> None:
     import matplotlib.pyplot as plt
 
@@ -354,10 +355,7 @@ def save_prediction_plot(
     axes[1].set_title("Residuals")
     axes[1].grid(alpha=0.2)
 
-    figure.suptitle(
-        "Plain DTW: five-fold subject-wise out-of-fold predictions",
-        fontsize=14,
-    )
+    figure.suptitle(title, fontsize=14)
     figure.legend(
         handles,
         labels,

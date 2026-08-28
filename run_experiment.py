@@ -11,6 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from kimore_evaluation import run_cross_validated_evaluation  # noqa: E402
+from kimore_yu_xiong_evaluation import run_yu_xiong_evaluation  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -24,13 +25,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--exercise",
         default="Es3",
-        choices=["Es3"],
-        help="Exercise supported by the frozen shoulder-yaw method (Es3 only)",
+        choices=[f"Es{i}" for i in range(1, 6)],
+        help=(
+            "KIMORE exercise; plain_dtw is defined only for Es3, while "
+            "yu_xiong_dtw accepts Es1--Es5"
+        ),
     )
     parser.add_argument(
         "--method",
         default="plain_dtw",
-        choices=["plain_dtw"],
+        choices=["plain_dtw", "yu_xiong_dtw"],
     )
     parser.add_argument(
         "--bootstrap-resamples",
@@ -44,25 +48,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=PROJECT_ROOT / "results" / "plain_dtw",
+        help="Output directory (default: ./results/<method>)",
     )
     parser.add_argument(
         "--figure-dir",
         type=Path,
-        default=PROJECT_ROOT / "figures" / "plain_dtw",
+        help="Figure directory (default: ./figures/<method>)",
     )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    if args.method != "plain_dtw":
-        raise ValueError(f"Unsupported method: {args.method}")
-    run_cross_validated_evaluation(
+    output_dir = args.output_dir or PROJECT_ROOT / "results" / args.method
+    figure_dir = args.figure_dir or PROJECT_ROOT / "figures" / args.method
+    evaluator = {
+        "plain_dtw": run_cross_validated_evaluation,
+        "yu_xiong_dtw": run_yu_xiong_evaluation,
+    }[args.method]
+    evaluator(
         manifest_path=args.manifest.expanduser().resolve(),
         exercise=args.exercise,
-        output_dir=args.output_dir.expanduser().resolve(),
-        figure_dir=args.figure_dir.expanduser().resolve(),
+        output_dir=output_dir.expanduser().resolve(),
+        figure_dir=figure_dir.expanduser().resolve(),
         bootstrap_resamples=args.bootstrap_resamples,
     )
     return 0
