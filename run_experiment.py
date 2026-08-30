@@ -68,6 +68,7 @@ def main() -> int:
             manifest_path=args.manifest.expanduser().resolve(),
             exercise=args.exercise,
             output_dir=output_dir.expanduser().resolve(),
+            figure_dir=figure_dir.expanduser().resolve(),
         )
         return 0
 

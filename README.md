@@ -23,6 +23,10 @@ model. Raw KIMORE data and generated experiment outputs are not included.
   and the paper's percentage-score equation.
 - `src/kimore_yu_xiong_evaluation.py`: subject-disjoint KIMORE adaptation and
   evaluation of the Yu--Xiong baseline.
+- `src/kimore_interpretable_dtw.py`: per-component explanation layer over the
+  unchanged Yu--Xiong alignment and score.
+- `src/kimore_interpretable_evaluation.py`: held-out component CSV export and
+  component-distribution plots.
 - `src/kimore_evaluation.py`: five-fold evaluation, metrics, diagnostics, and
   output generation.
 - `run_experiment.py`: command-line entry point.
@@ -72,6 +76,17 @@ Run the Yu--Xiong comparison baseline on the same exercise:
 ```powershell
 .\.venv\Scripts\python.exe run_experiment.py --exercise Es3 --method yu_xiong_dtw
 ```
+
+Export and plot the interpretable per-component analysis:
+
+```powershell
+.\.venv\Scripts\python.exe run_experiment.py --exercise Es3 --method interpretable_dtw
+```
+
+This produces one CSV row per held-out sample and body component under
+`results/interpretable_dtw/`, plus component error and contribution
+distribution plots under `figures/interpretable_dtw/`. The explanation layer
+reuses the Yu--Xiong path and score without changing the comparison baseline.
 
 The method follows Yu and Xiong's eight body-local limb vectors plus body
 forward vector, angular multidimensional DTW, and Equation (5) score. KIMORE

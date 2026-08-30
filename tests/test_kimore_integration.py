@@ -218,10 +218,12 @@ class EndToEndExperimentTests(unittest.TestCase):
                 writer.writerows(rows)
 
             output_dir = root / "results"
+            figure_dir = root / "figures"
             summary = run_interpretable_evaluation(
                 manifest_path=manifest,
                 exercise="Es3",
                 output_dir=output_dir,
+                figure_dir=figure_dir,
                 progress=lambda _: None,
             )
 
@@ -229,6 +231,13 @@ class EndToEndExperimentTests(unittest.TestCase):
             self.assertEqual(summary["samples"], 5)
             self.assertEqual(summary["component_rows"], 45)
             self.assertEqual(summary["subject_overlap_in_every_fold"], 0)
+            self.assertEqual(len(summary["figures"]), 2)
+            self.assertTrue(
+                (figure_dir / "component_error_distributions.png").is_file()
+            )
+            self.assertTrue(
+                (figure_dir / "component_contribution_distributions.png").is_file()
+            )
 
             with (output_dir / "component_summaries.csv").open(
                 encoding="utf-8", newline=""
