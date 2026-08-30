@@ -11,6 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from kimore_evaluation import run_cross_validated_evaluation  # noqa: E402
+from kimore_interpretable_evaluation import run_interpretable_evaluation  # noqa: E402
 from kimore_yu_xiong_evaluation import run_yu_xiong_evaluation  # noqa: E402
 
 
@@ -28,13 +29,13 @@ def parse_args() -> argparse.Namespace:
         choices=[f"Es{i}" for i in range(1, 6)],
         help=(
             "KIMORE exercise; plain_dtw is defined only for Es3, while "
-            "yu_xiong_dtw accepts Es1--Es5"
+            "yu_xiong_dtw and interpretable_dtw accept Es1--Es5"
         ),
     )
     parser.add_argument(
         "--method",
         default="plain_dtw",
-        choices=["plain_dtw", "yu_xiong_dtw"],
+        choices=["plain_dtw", "yu_xiong_dtw", "interpretable_dtw"],
     )
     parser.add_argument(
         "--bootstrap-resamples",
@@ -62,6 +63,14 @@ def main() -> int:
     args = parse_args()
     output_dir = args.output_dir or PROJECT_ROOT / "results" / args.method
     figure_dir = args.figure_dir or PROJECT_ROOT / "figures" / args.method
+    if args.method == "interpretable_dtw":
+        run_interpretable_evaluation(
+            manifest_path=args.manifest.expanduser().resolve(),
+            exercise=args.exercise,
+            output_dir=output_dir.expanduser().resolve(),
+        )
+        return 0
+
     evaluator = {
         "plain_dtw": run_cross_validated_evaluation,
         "yu_xiong_dtw": run_yu_xiong_evaluation,

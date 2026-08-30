@@ -16,6 +16,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from kimore_dataset import JOINT_INDEX, JOINT_NAMES  # noqa: E402
 from kimore_evaluation import run_cross_validated_evaluation  # noqa: E402
+from kimore_interpretable_evaluation import run_interpretable_evaluation  # noqa: E402
 from kimore_yu_xiong_evaluation import run_yu_xiong_evaluation  # noqa: E402
 
 
@@ -185,6 +186,68 @@ class EndToEndExperimentTests(unittest.TestCase):
             self.assertTrue((output_dir / "metrics.csv").is_file())
             self.assertTrue((output_dir / "fold_metadata.json").is_file())
             self.assertTrue((figure_dir / "actual_vs_predicted.png").is_file())
+
+    def test_interpretable_dtw_exports_nine_rows_per_held_out_subject(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "manifest.csv"
+            rows: list[dict[str, object]] = []
+            for number in range(5):
+                sample_id = f"SYN_ID{number + 1}_Es3"
+                position_path = root / f"{sample_id}.csv"
+                frames = write_synthetic_full_body_recording(
+                    position_path, yaw_offset=float(number * 4)
+                )
+                rows.append(
+                    {
+                        "sample_id": sample_id,
+                        "subject_id": f"SYN_ID{number + 1}",
+                        "cohort": "synthetic",
+                        "exercise": "Es3",
+                        "clinical_ts": 30.0 + number,
+                        "position_frames": frames,
+                        "position_columns": 100,
+                        "position_path": str(position_path),
+                        "issues": "",
+                    }
+                )
+
+            with manifest.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+                writer.writeheader()
+                writer.writerows(rows)
+
+            output_dir = root / "results"
+            summary = run_interpretable_evaluation(
+                manifest_path=manifest,
+                exercise="Es3",
+                output_dir=output_dir,
+                progress=lambda _: None,
+            )
+
+            self.assertEqual(summary["method"], "interpretable_dtw")
+            self.assertEqual(summary["samples"], 5)
+            self.assertEqual(summary["component_rows"], 45)
+            self.assertEqual(summary["subject_overlap_in_every_fold"], 0)
+
+            with (output_dir / "component_summaries.csv").open(
+                encoding="utf-8", newline=""
+            ) as handle:
+                component_rows = list(csv.DictReader(handle))
+            self.assertEqual(len(component_rows), 45)
+            self.assertEqual(
+                {row["sample_id"] for row in component_rows},
+                {row["sample_id"] for row in rows},
+            )
+            for sample_id in {row["sample_id"] for row in rows}:
+                sample_rows = [
+                    row for row in component_rows if row["sample_id"] == sample_id
+                ]
+                self.assertEqual(len(sample_rows), 9)
+                self.assertEqual(
+                    [int(row["component_index"]) for row in sample_rows],
+                    list(range(9)),
+                )
 
 
 if __name__ == "__main__":
