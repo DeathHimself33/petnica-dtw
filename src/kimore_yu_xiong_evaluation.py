@@ -8,8 +8,6 @@ from typing import Callable
 
 import matplotlib
 import numpy as np
-import scipy
-import sklearn
 
 from kimore_dataset import read_manifest
 from kimore_evaluation import (
@@ -18,6 +16,7 @@ from kimore_evaluation import (
     _git_revision,
     _manifest_sha256,
     _metrics_row,
+    _package_version,
     _portable_path,
     _source_code_sha256,
     _write_csv,
@@ -446,9 +445,9 @@ def run_yu_xiong_evaluation(
         },
         "environment": {
             "numpy": np.__version__,
-            "scipy": scipy.__version__,
+            "scipy": _package_version("scipy"),
             "matplotlib": matplotlib.__version__,
-            "scikit_learn": sklearn.__version__,
+            "scikit_learn": _package_version("scikit-learn"),
         },
         "interpretation": (
             "Subject-disjoint internal development cross-validation. The original "

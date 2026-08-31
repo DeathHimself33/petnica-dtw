@@ -44,6 +44,14 @@ class EvaluationMetricTests(unittest.TestCase):
         self.assertTrue(math.isnan(metrics["spearman"]))
         self.assertTrue(math.isnan(metrics["pearson"]))
 
+    def test_spearman_uses_average_ranks_for_ties(self) -> None:
+        metrics = regression_metrics(
+            np.asarray([1.0, 2.0, 2.0, 3.0]),
+            np.asarray([1.0, 2.0, 3.0, 4.0]),
+        )
+
+        self.assertAlmostEqual(metrics["spearman"], 0.9486832980505138)
+
     def test_training_constants_do_not_use_test_scores(self) -> None:
         scores = np.asarray([10.0, 20.0, 1000.0])
 

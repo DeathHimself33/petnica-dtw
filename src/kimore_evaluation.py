@@ -8,14 +8,12 @@ import json
 import platform
 import subprocess
 from collections import Counter
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Callable, Sequence
 
 import matplotlib
 import numpy as np
-import scipy
-import sklearn
-from scipy.stats import pearsonr, spearmanr
 
 from kimore_dataset import KimoreSample, read_manifest
 from kimore_grouping import assert_no_subject_leakage, make_subject_folds, subject_groups
@@ -34,6 +32,56 @@ from kimore_dtw import DtwAlignment, exact_dtw
 METRIC_NAMES = ("mae", "rmse", "spearman", "pearson")
 BOOTSTRAP_SEED = 20260825
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _package_version(distribution_name: str) -> str:
+    """Read package metadata without importing optional compiled libraries."""
+    try:
+        return version(distribution_name)
+    except PackageNotFoundError:
+        return "not-installed"
+
+
+def _pearson_correlation(first: np.ndarray, second: np.ndarray) -> float:
+    """Return Pearson's r using NumPy, or NaN when it is undefined."""
+    x = np.asarray(first, dtype=np.float64)
+    y = np.asarray(second, dtype=np.float64)
+    if x.ndim != 1 or y.ndim != 1 or len(x) != len(y) or len(x) < 2:
+        return float("nan")
+    x_centered = x - np.mean(x)
+    y_centered = y - np.mean(y)
+    denominator = float(
+        np.sqrt(np.sum(x_centered ** 2) * np.sum(y_centered ** 2))
+    )
+    if denominator <= np.finfo(np.float64).eps:
+        return float("nan")
+    return float(np.sum(x_centered * y_centered) / denominator)
+
+
+def _average_ranks(values: np.ndarray) -> np.ndarray:
+    """Return one-based average ranks, including deterministic tie handling."""
+    array = np.asarray(values, dtype=np.float64)
+    if array.ndim != 1:
+        raise ValueError("Ranks require a one-dimensional array")
+    order = np.argsort(array, kind="stable")
+    ranks = np.empty(len(array), dtype=np.float64)
+    start = 0
+    while start < len(array):
+        end = start + 1
+        while end < len(array) and array[order[end]] == array[order[start]]:
+            end += 1
+        ranks[order[start:end]] = (start + end - 1) / 2.0 + 1.0
+        start = end
+    return ranks
+
+
+def _spearman_correlation(first: np.ndarray, second: np.ndarray) -> float:
+    """Return Spearman's rho as Pearson correlation of average ranks."""
+    x = np.asarray(first, dtype=np.float64)
+    y = np.asarray(second, dtype=np.float64)
+    if x.ndim != 1 or y.ndim != 1 or len(x) != len(y) or len(x) < 2:
+        return float("nan")
+    return _pearson_correlation(_average_ranks(x), _average_ranks(y))
 
 
 def regression_metrics(actual: np.ndarray, predicted: np.ndarray) -> dict[str, float]:
@@ -57,8 +105,8 @@ def regression_metrics(actual: np.ndarray, predicted: np.ndarray) -> dict[str, f
         spearman = float("nan")
         pearson = float("nan")
     else:
-        spearman = float(spearmanr(y_true, y_pred).correlation)
-        pearson = float(pearsonr(y_true, y_pred)[0])
+        spearman = _spearman_correlation(y_true, y_pred)
+        pearson = _pearson_correlation(y_true, y_pred)
     return {
         "mae": mae,
         "rmse": rmse,
@@ -983,10 +1031,10 @@ def run_cross_validated_evaluation(
                 np.max(initial_offsets)
             ),
             "offset_spearman_with_dtw_distance": float(
-                spearmanr(initial_offsets, distances).correlation
+                _spearman_correlation(initial_offsets, distances)
             ),
             "offset_spearman_with_absolute_prediction_error": float(
-                spearmanr(initial_offsets, absolute_errors).correlation
+                _spearman_correlation(initial_offsets, absolute_errors)
             ),
             "interpretation": (
                 "The untrimmed absolute yaw feature may mix movement phase, resting "
@@ -1020,9 +1068,9 @@ def run_cross_validated_evaluation(
         "environment": {
             "python": platform.python_version(),
             "numpy": np.__version__,
-            "scipy": scipy.__version__,
+            "scipy": _package_version("scipy"),
             "matplotlib": matplotlib.__version__,
-            "scikit_learn": sklearn.__version__,
+            "scikit_learn": _package_version("scikit-learn"),
         },
         "interpretation": (
             "Subject-disjoint internal development cross-validation on KIMORE, "

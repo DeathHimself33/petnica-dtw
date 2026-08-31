@@ -78,6 +78,14 @@ class SubjectGroupingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, r"exceeds the 2 unique subjects"):
             make_subject_folds(samples, n_splits=3)
 
+    def test_equal_groups_match_deterministic_group_kfold_allocation(self) -> None:
+        samples = [sample(f"{subject}_Es3", subject) for subject in "ABCDE"]
+
+        folds = make_subject_folds(samples, n_splits=2)
+
+        self.assertEqual(folds[0].test_indices.tolist(), [0, 2, 4])
+        self.assertEqual(folds[1].test_indices.tolist(), [1, 3])
+
 
 if __name__ == "__main__":
     unittest.main()

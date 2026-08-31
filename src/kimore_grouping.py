@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Sequence
 
 import numpy as np
-from sklearn.model_selection import GroupKFold
 
 from kimore_dataset import KimoreSample, read_manifest
 
@@ -70,13 +69,25 @@ def make_subject_folds(
         )
 
     sample_indices = np.arange(len(samples))
-    splitter = GroupKFold(n_splits=n_splits)
+    unique_groups, group_indices = np.unique(groups, return_inverse=True)
+    samples_per_group = np.bincount(group_indices)
+    # Match deterministic ``GroupKFold(shuffle=False)`` allocation without
+    # importing scikit-learn (whose SciPy DLLs may be blocked by Windows
+    # Application Control in user-writable virtual environments).
+    largest_first = np.argsort(samples_per_group, kind="stable")[::-1]
+    samples_per_fold = np.zeros(n_splits, dtype=np.int64)
+    group_to_fold = np.zeros(len(unique_groups), dtype=np.int64)
+    for group_index in largest_first:
+        lightest_fold = int(np.argmin(samples_per_fold))
+        samples_per_fold[lightest_fold] += samples_per_group[group_index]
+        group_to_fold[group_index] = lightest_fold
+    assigned_folds = group_to_fold[group_indices]
     folds: list[SubjectFold] = []
 
-    for number, (train_indices, test_indices) in enumerate(
-        splitter.split(sample_indices, groups=groups),
-        start=1,
-    ):
+    for fold_index in range(n_splits):
+        test_indices = sample_indices[assigned_folds == fold_index]
+        train_indices = sample_indices[assigned_folds != fold_index]
+        number = fold_index + 1
         assert_no_subject_leakage(
             groups,
             train_indices,

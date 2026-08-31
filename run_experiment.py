@@ -10,11 +10,6 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from kimore_evaluation import run_cross_validated_evaluation  # noqa: E402
-from kimore_interpretable_evaluation import run_interpretable_evaluation  # noqa: E402
-from kimore_yu_xiong_evaluation import run_yu_xiong_evaluation  # noqa: E402
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -64,6 +59,8 @@ def main() -> int:
     output_dir = args.output_dir or PROJECT_ROOT / "results" / args.method
     figure_dir = args.figure_dir or PROJECT_ROOT / "figures" / args.method
     if args.method == "interpretable_dtw":
+        from kimore_interpretable_evaluation import run_interpretable_evaluation
+
         run_interpretable_evaluation(
             manifest_path=args.manifest.expanduser().resolve(),
             exercise=args.exercise,
@@ -72,10 +69,14 @@ def main() -> int:
         )
         return 0
 
-    evaluator = {
-        "plain_dtw": run_cross_validated_evaluation,
-        "yu_xiong_dtw": run_yu_xiong_evaluation,
-    }[args.method]
+    if args.method == "plain_dtw":
+        from kimore_evaluation import run_cross_validated_evaluation
+
+        evaluator = run_cross_validated_evaluation
+    else:
+        from kimore_yu_xiong_evaluation import run_yu_xiong_evaluation
+
+        evaluator = run_yu_xiong_evaluation
     evaluator(
         manifest_path=args.manifest.expanduser().resolve(),
         exercise=args.exercise,

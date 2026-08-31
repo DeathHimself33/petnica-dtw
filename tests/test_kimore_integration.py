@@ -230,13 +230,38 @@ class EndToEndExperimentTests(unittest.TestCase):
             self.assertEqual(summary["method"], "interpretable_dtw")
             self.assertEqual(summary["samples"], 5)
             self.assertEqual(summary["component_rows"], 45)
+            self.assertEqual(summary["qc_usable_samples"], 5)
+            self.assertEqual(summary["qc_usable_component_rows"], 45)
+            self.assertEqual(summary["interpolated_frames"], 0)
+            self.assertEqual(summary["interpolated_component_frames"], 0)
+            self.assertEqual(summary["dropped_frames"], 0)
+            self.assertEqual(
+                summary["quality_counts"],
+                {"pass": 5, "warning": 0, "fail": 0},
+            )
             self.assertEqual(summary["subject_overlap_in_every_fold"], 0)
-            self.assertEqual(len(summary["figures"]), 2)
+            self.assertEqual(len(summary["figures"]), 4)
+            self.assertTrue((output_dir / "component_quality.csv").is_file())
+            self.assertTrue(
+                (output_dir / "component_summaries_qc_usable.csv").is_file()
+            )
             self.assertTrue(
                 (figure_dir / "component_error_distributions.png").is_file()
             )
             self.assertTrue(
                 (figure_dir / "component_contribution_distributions.png").is_file()
+            )
+            self.assertTrue(
+                (
+                    figure_dir
+                    / "component_error_distributions_qc_usable.png"
+                ).is_file()
+            )
+            self.assertTrue(
+                (
+                    figure_dir
+                    / "component_contribution_distributions_qc_usable.png"
+                ).is_file()
             )
 
             with (output_dir / "component_summaries.csv").open(
@@ -244,6 +269,10 @@ class EndToEndExperimentTests(unittest.TestCase):
             ) as handle:
                 component_rows = list(csv.DictReader(handle))
             self.assertEqual(len(component_rows), 45)
+            self.assertEqual(
+                {row["input_variant"] for row in component_rows},
+                {"raw"},
+            )
             self.assertEqual(
                 {row["sample_id"] for row in component_rows},
                 {row["sample_id"] for row in rows},
@@ -257,6 +286,30 @@ class EndToEndExperimentTests(unittest.TestCase):
                     [int(row["component_index"]) for row in sample_rows],
                     list(range(9)),
                 )
+
+            with (output_dir / "component_summaries_qc_usable.csv").open(
+                encoding="utf-8", newline=""
+            ) as handle:
+                qc_component_rows = list(csv.DictReader(handle))
+            self.assertEqual(len(qc_component_rows), 45)
+            self.assertEqual(
+                {row["input_variant"] for row in qc_component_rows},
+                {"frame_qc"},
+            )
+            self.assertEqual(
+                {row["sample_frames_used"] for row in qc_component_rows},
+                {"5"},
+            )
+
+            with (output_dir / "component_quality.csv").open(
+                encoding="utf-8", newline=""
+            ) as handle:
+                quality_rows = list(csv.DictReader(handle))
+            self.assertEqual(len(quality_rows), 45)
+            self.assertEqual(
+                {row["component_quality_status"] for row in quality_rows},
+                {"pass"},
+            )
 
 
 if __name__ == "__main__":

@@ -25,6 +25,8 @@ model. Raw KIMORE data and generated experiment outputs are not included.
   evaluation of the Yu--Xiong baseline.
 - `src/kimore_interpretable_dtw.py`: per-component explanation layer over the
   unchanged Yu--Xiong alignment and score.
+- `src/kimore_interpretable_quality.py`: per-vector tracking, source-length,
+  temporal-continuity, and anatomical plausibility checks.
 - `src/kimore_interpretable_evaluation.py`: held-out component CSV export and
   component-distribution plots.
 - `src/kimore_evaluation.py`: five-fold evaluation, metrics, diagnostics, and
@@ -87,6 +89,17 @@ This produces one CSV row per held-out sample and body component under
 `results/interpretable_dtw/`, plus component error and contribution
 distribution plots under `figures/interpretable_dtw/`. The explanation layer
 reuses the Yu--Xiong path and score without changing the comparison baseline.
+It also writes `component_quality.csv`, a frame-QC component subset, and
+separate QC-usable plots. Frame QC checks tracking, source-bone length,
+isolated angular jumps, and Es3 anatomical direction for each of the nine
+features. Internal invalid runs of at most five frames are interpolated between
+valid unit-vector endpoints; unresolved invalid frames are removed from the QC
+sequence. A recording is rejected only when less than 80% remains, one removed
+run exceeds 10% of the recording, fewer than two usable frames remain, or a
+component is almost never fully tracked. Torso-frame failures propagate to the
+eight body-local limb features that depend on that frame. Raw KIMORE files are
+never changed, and `component_summaries.csv` retains raw-vector results while
+`component_summaries_qc_usable.csv` contains the repaired/trimmed results.
 
 The method follows Yu and Xiong's eight body-local limb vectors plus body
 forward vector, angular multidimensional DTW, and Equation (5) score. KIMORE
