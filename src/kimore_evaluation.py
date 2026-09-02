@@ -296,6 +296,86 @@ def bootstrap_improvement_intervals(
     }
 
 
+def bootstrap_paired_metric_improvements(
+    actual: np.ndarray,
+    candidate_predictions: np.ndarray,
+    comparator_predictions: np.ndarray,
+    groups: Sequence[str],
+    resamples: int,
+    seed: int = BOOTSTRAP_SEED + 2,
+) -> dict[str, dict[str, float | int | None]]:
+    """Bootstrap paired metric gains for a candidate over a comparator.
+
+    Positive values always favor the candidate: error metrics are reported as
+    comparator minus candidate, while correlations are candidate minus
+    comparator.
+    """
+    if resamples < 1:
+        raise ValueError("Bootstrap resamples must be at least 1")
+
+    y_true = np.asarray(actual, dtype=np.float64)
+    candidate = np.asarray(candidate_predictions, dtype=np.float64)
+    comparator = np.asarray(comparator_predictions, dtype=np.float64)
+    group_array = np.asarray(groups, dtype=object)
+    arrays = (candidate, comparator, group_array)
+    if any(len(values) != len(y_true) for values in arrays):
+        raise ValueError("Paired bootstrap arrays and groups must have equal length")
+    if len(y_true) == 0:
+        raise ValueError("Paired bootstrap needs at least one prediction row")
+
+    def improvements(indices: np.ndarray) -> dict[str, float]:
+        candidate_metrics = regression_metrics(y_true[indices], candidate[indices])
+        comparator_metrics = regression_metrics(y_true[indices], comparator[indices])
+        return {
+            "mae_reduction": (
+                comparator_metrics["mae"] - candidate_metrics["mae"]
+            ),
+            "rmse_reduction": (
+                comparator_metrics["rmse"] - candidate_metrics["rmse"]
+            ),
+            "spearman_increase": (
+                candidate_metrics["spearman"] - comparator_metrics["spearman"]
+            ),
+            "pearson_increase": (
+                candidate_metrics["pearson"] - comparator_metrics["pearson"]
+            ),
+        }
+
+    rng = np.random.RandomState(seed)
+    values: dict[str, list[float]] = {
+        "mae_reduction": [],
+        "rmse_reduction": [],
+        "spearman_increase": [],
+        "pearson_increase": [],
+    }
+    for _ in range(resamples):
+        indices = _group_bootstrap_indices(group_array, rng)
+        for name, value in improvements(indices).items():
+            if np.isfinite(value):
+                values[name].append(float(value))
+
+    estimates = improvements(np.arange(len(y_true), dtype=int))
+    intervals: dict[str, dict[str, float | int | None]] = {}
+    for name, samples in values.items():
+        if samples:
+            low, high = np.percentile(np.asarray(samples), (2.5, 97.5))
+            intervals[name] = {
+                "estimate": float(estimates[name]),
+                "low": float(low),
+                "high": float(high),
+                "valid_resamples": len(samples),
+            }
+        else:
+            estimate = estimates[name]
+            intervals[name] = {
+                "estimate": float(estimate) if np.isfinite(estimate) else None,
+                "low": None,
+                "high": None,
+                "valid_resamples": 0,
+            }
+    return intervals
+
+
 def _json_value(value: object) -> object:
     if isinstance(value, dict):
         return {key: _json_value(item) for key, item in value.items()}

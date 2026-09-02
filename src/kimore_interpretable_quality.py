@@ -83,6 +83,8 @@ class FrameQualityResult:
     repaired_vectors: np.ndarray
     cleaned_vectors: np.ndarray
     component_summaries: tuple[ComponentQualitySummary, ...]
+    retained_frame_indices: np.ndarray
+    interpolated_component_mask: np.ndarray
     dropped_frame_mask: np.ndarray
     total_frames: int
     interpolated_frames: int
@@ -560,6 +562,7 @@ def apply_frame_quality_control(
         )
 
     dropped_frame_mask = np.any(unrepaired_masks, axis=1)
+    retained_frame_indices = np.flatnonzero(~dropped_frame_mask)
     cleaned_vectors = repaired_vectors[~dropped_frame_mask].copy()
     total_frames = len(positions)
     dropped_frames = int(np.sum(dropped_frame_mask))
@@ -600,6 +603,8 @@ def apply_frame_quality_control(
         repaired_vectors=repaired_vectors,
         cleaned_vectors=cleaned_vectors,
         component_summaries=tuple(summaries),
+        retained_frame_indices=retained_frame_indices,
+        interpolated_component_mask=interpolated_masks,
         dropped_frame_mask=dropped_frame_mask,
         total_frames=total_frames,
         interpolated_frames=unique_interpolated,

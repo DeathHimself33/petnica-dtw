@@ -66,6 +66,7 @@ def main() -> int:
             exercise=args.exercise,
             output_dir=output_dir.expanduser().resolve(),
             figure_dir=figure_dir.expanduser().resolve(),
+            bootstrap_resamples=args.bootstrap_resamples,
         )
         return 0
 

@@ -15,6 +15,7 @@ from kimore_evaluation import (  # noqa: E402
     alignment_warp_diagnostics,
     bootstrap_improvement_intervals,
     bootstrap_metric_intervals,
+    bootstrap_paired_metric_improvements,
     regression_metrics,
     run_cross_validated_evaluation,
     training_cohort_constant_values,
@@ -148,6 +149,24 @@ class EvaluationSafetyTests(unittest.TestCase):
             improvements["rmse_reduction_vs_training_mean"]["estimate"],
             0.0,
         )
+
+    def test_paired_bootstrap_uses_positive_values_for_candidate_gains(self) -> None:
+        actual = np.asarray([0.0, 1.0, 2.0, 3.0])
+        candidate = actual.copy()
+        comparator = actual + 1.0
+
+        result = bootstrap_paired_metric_improvements(
+            actual,
+            candidate,
+            comparator,
+            groups=["A", "B", "C", "D"],
+            resamples=50,
+            seed=123,
+        )
+
+        self.assertAlmostEqual(result["mae_reduction"]["estimate"], 1.0)
+        self.assertAlmostEqual(result["rmse_reduction"]["estimate"], 1.0)
+        self.assertGreater(result["mae_reduction"]["valid_resamples"], 0)
 
 
 if __name__ == "__main__":

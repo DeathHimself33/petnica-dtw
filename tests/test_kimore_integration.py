@@ -224,6 +224,7 @@ class EndToEndExperimentTests(unittest.TestCase):
                 exercise="Es3",
                 output_dir=output_dir,
                 figure_dir=figure_dir,
+                bootstrap_resamples=10,
                 progress=lambda _: None,
             )
 
@@ -232,6 +233,11 @@ class EndToEndExperimentTests(unittest.TestCase):
             self.assertEqual(summary["component_rows"], 45)
             self.assertEqual(summary["qc_usable_samples"], 5)
             self.assertEqual(summary["qc_usable_component_rows"], 45)
+            self.assertEqual(summary["oof_prediction_rows"], 5)
+            self.assertEqual(summary["qc_coverage_fraction"], 1.0)
+            self.assertEqual(summary["error_timeline_rows"], 225)
+            self.assertEqual(summary["top_deviation_interval_rows"], 25)
+            self.assertEqual(summary["annotation_queue_rows"], 25)
             self.assertEqual(summary["interpolated_frames"], 0)
             self.assertEqual(summary["interpolated_component_frames"], 0)
             self.assertEqual(summary["dropped_frames"], 0)
@@ -240,8 +246,17 @@ class EndToEndExperimentTests(unittest.TestCase):
                 {"pass": 5, "warning": 0, "fail": 0},
             )
             self.assertEqual(summary["subject_overlap_in_every_fold"], 0)
-            self.assertEqual(len(summary["figures"]), 4)
+            self.assertEqual(len(summary["figures"]), 5)
             self.assertTrue((output_dir / "component_quality.csv").is_file())
+            self.assertTrue((output_dir / "oof_predictions.csv").is_file())
+            self.assertTrue((output_dir / "metrics.csv").is_file())
+            self.assertTrue((output_dir / "fold_metadata.json").is_file())
+            self.assertTrue((output_dir / "evaluation_summary.json").is_file())
+            self.assertTrue((output_dir / "error_timeline.csv").is_file())
+            self.assertTrue(
+                (output_dir / "top_deviation_intervals.csv").is_file()
+            )
+            self.assertTrue((output_dir / "annotation_queue.csv").is_file())
             self.assertTrue(
                 (output_dir / "component_summaries_qc_usable.csv").is_file()
             )
@@ -262,6 +277,52 @@ class EndToEndExperimentTests(unittest.TestCase):
                     figure_dir
                     / "component_contribution_distributions_qc_usable.png"
                 ).is_file()
+            )
+            self.assertTrue(
+                (figure_dir / "actual_vs_predicted_qc.png").is_file()
+            )
+
+            with (output_dir / "oof_predictions.csv").open(
+                encoding="utf-8", newline=""
+            ) as handle:
+                prediction_rows = list(csv.DictReader(handle))
+            self.assertEqual(len(prediction_rows), 5)
+            self.assertEqual(
+                {row["sample_quality_status"] for row in prediction_rows},
+                {"pass"},
+            )
+            self.assertTrue(
+                all(row["qc_predicted_ts"] for row in prediction_rows)
+            )
+            self.assertTrue(
+                all(row["raw_predicted_ts"] for row in prediction_rows)
+            )
+
+            with (output_dir / "error_timeline.csv").open(
+                encoding="utf-8", newline=""
+            ) as handle:
+                timeline_rows = list(csv.DictReader(handle))
+            self.assertEqual(len(timeline_rows), 225)
+            self.assertEqual(
+                {row["interpretation"] for row in timeline_rows},
+                {
+                    "candidate_deviation_from_reference_not_validated_as_"
+                    "execution_error"
+                },
+            )
+
+            with (output_dir / "annotation_queue.csv").open(
+                encoding="utf-8", newline=""
+            ) as handle:
+                annotation_rows = list(csv.DictReader(handle))
+            self.assertEqual(len(annotation_rows), 25)
+            self.assertEqual(
+                {row["review_status"] for row in annotation_rows},
+                {"unreviewed"},
+            )
+            self.assertEqual(
+                {row["execution_label"] for row in annotation_rows},
+                {""},
             )
 
             with (output_dir / "component_summaries.csv").open(

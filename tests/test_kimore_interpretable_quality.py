@@ -212,6 +212,9 @@ class InterpretableQualityTests(unittest.TestCase):
         self.assertEqual(result.quality_status, "warning")
         self.assertEqual(result.dropped_frames, 0)
         self.assertEqual(result.cleaned_vectors.shape, (9, 9, 3))
+        self.assertEqual(result.retained_frame_indices.tolist(), list(range(9)))
+        self.assertTrue(result.interpolated_component_mask[4, 4])
+        self.assertTrue(result.interpolated_component_mask[4, 5])
         self.assertTrue(np.array_equal(vectors, original_vectors))
         self.assertTrue(
             np.allclose(np.linalg.norm(result.cleaned_vectors, axis=2), 1.0)
@@ -233,6 +236,7 @@ class InterpretableQualityTests(unittest.TestCase):
         self.assertEqual(result.retained_frames, 19)
         self.assertEqual(result.longest_dropped_run, 1)
         self.assertEqual(result.cleaned_vectors.shape, (19, 9, 3))
+        self.assertEqual(result.retained_frame_indices.tolist(), list(range(1, 20)))
 
     def test_long_invalid_run_still_rejects_recording(self) -> None:
         sequence = standing_sequence(frames=12)

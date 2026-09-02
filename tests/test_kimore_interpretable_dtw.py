@@ -92,6 +92,29 @@ class InterpretableDtwTests(unittest.TestCase):
         )
         self.assertAlmostEqual(interpretable.paper_score, baseline.paper_score)
 
+    def test_long_self_alignment_matches_single_normalization_baseline(self) -> None:
+        rng = np.random.RandomState(123)
+        vectors = rng.normal(size=(64, 9, 3))
+        vectors /= np.linalg.norm(vectors, axis=2, keepdims=True)
+
+        baseline = yu_xiong_dtw(vectors, vectors)
+        interpretable = interpretable_dtw(vectors, vectors)
+
+        self.assertTrue(np.array_equal(interpretable.path, baseline.path))
+        self.assertAlmostEqual(
+            interpretable.total_angular_cost_degrees,
+            baseline.total_angular_cost_degrees,
+            places=12,
+        )
+        self.assertTrue(
+            np.isclose(
+                np.sum(interpretable.component_errors_degrees),
+                baseline.total_angular_cost_degrees,
+                rtol=1e-12,
+                atol=1e-9,
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

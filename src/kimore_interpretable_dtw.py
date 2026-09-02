@@ -69,7 +69,11 @@ def interpretable_dtw(
     """Run Yu--Xiong DTW and retain its per-component path errors."""
     sample_vectors = _vector_sequence(sample, "sample")
     reference_vectors = _vector_sequence(reference, "reference")
-    base = yu_xiong_dtw(sample_vectors, reference_vectors)
+    # Run the baseline on the original inputs so that it performs exactly the
+    # same single normalization as a direct yu_xiong_dtw call. Passing the
+    # already-normalized arrays would normalize twice and can create tiny,
+    # but accumulated, self-alignment costs on long recordings.
+    base = yu_xiong_dtw(sample, reference)
     component_errors = _path_component_errors(
         sample_vectors,
         reference_vectors,

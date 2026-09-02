@@ -29,18 +29,24 @@ model. Raw KIMORE data and generated experiment outputs are not included.
   temporal-continuity, and anatomical plausibility checks.
 - `src/kimore_interpretable_evaluation.py`: held-out component CSV export and
   component-distribution plots.
+- `src/kimore_pilot_review.py`: balanced Es3 pilot selection and synchronized
+  RGB/reference review-sheet generation.
+- `src/kimore_apply_pilot_labels.py`: strict label validation, queue merge,
+  summary export, and blinded second-review sampling.
 - `src/kimore_evaluation.py`: five-fold evaluation, metrics, diagnostics, and
   output generation.
+- `annotations/kimore_es3_pilot_labels.csv`: versioned preliminary first-pass
+  labels for the 100-row localization pilot.
 - `run_experiment.py`: command-line entry point.
 - `tests/`: automated tests for the dataset, preprocessing, grouping, DTW, and
   evaluation code.
 
 ## Setup
 
-The tested environment is Python 3.7.4 on Windows.
+The tested environment is Python 3.13.14 on Windows.
 
 ```powershell
-py -3.7 -m venv .venv
+py -V:3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
@@ -89,16 +95,46 @@ This produces one CSV row per held-out sample and body component under
 `results/interpretable_dtw/`, plus component error and contribution
 distribution plots under `figures/interpretable_dtw/`. The explanation layer
 reuses the Yu--Xiong path and score without changing the comparison baseline.
-It also writes `component_quality.csv`, a frame-QC component subset, and
-separate QC-usable plots. Frame QC checks tracking, source-bone length,
-isolated angular jumps, and Es3 anatomical direction for each of the nine
-features. Internal invalid runs of at most five frames are interpolated between
-valid unit-vector endpoints; unresolved invalid frames are removed from the QC
-sequence. A recording is rejected only when less than 80% remains, one removed
-run exceeds 10% of the recording, fewer than two usable frames remain, or a
-component is almost never fully tracked. Torso-frame failures propagate to the
-eight body-local limb features that depend on that frame. Raw KIMORE files are
-never changed, and `component_summaries.csv` retains raw-vector results while
+It also writes `component_quality.csv`, a frame-QC component subset, separate
+QC-usable plots, and a leakage-safe QC prediction evaluation. For every outer
+fold, both raw and QC paper-score calibrations are fitted only on the same
+QC-usable training subjects and evaluated on the same QC-usable held-out
+subjects. The paired outputs are `oof_predictions.csv`, `metrics.csv`,
+`fold_metadata.json`, and `evaluation_summary.json`; accuracy must be reported
+together with the retained-subject coverage.
+
+The QC run also exports `error_timeline.csv`, with one row for every retained
+original sample frame and body component. Each row records the mean and maximum
+aligned angular deviation, the original sample frame, and the aligned reference
+frame range. `top_deviation_intervals.csv` selects the five largest fixed 5%
+progress windows per recording. These are explicitly candidate deviations from
+the reference, not validated execution errors. `annotation_queue.csv` copies
+those candidates and adds blank human-review fields (`execution_label`,
+`error_type`, `severity`, confidence, annotator, and notes) for a manual pilot.
+The allowed values and review procedure are defined in `ANNOTATION_GUIDE.md`.
+
+Generate the balanced 20-recording visual pilot and apply the versioned
+first-pass labels:
+
+```powershell
+.\.venv\Scripts\python.exe .\src\kimore_pilot_review.py
+.\.venv\Scripts\python.exe .\src\kimore_apply_pilot_labels.py
+```
+
+The result and its limitations are documented in `PILOT_LABEL_REPORT.md`.
+The first pass contains 100 candidates and is explicitly non-clinical; an
+independent reviewer must complete the generated blinded
+`second_review_queue.csv` before any ground-truth claim.
+
+Frame QC checks tracking, source-bone length, isolated angular jumps, and Es3
+anatomical direction for each of the nine features. Internal invalid runs of at
+most five frames are interpolated between valid unit-vector endpoints;
+unresolved invalid frames are removed from the QC sequence. A recording is
+rejected only when less than 80% remains, one removed run exceeds 10% of the
+recording, fewer than two usable frames remain, or a component is almost never
+fully tracked. Torso-frame failures propagate to the eight body-local limb
+features that depend on that frame. Raw KIMORE files are never changed, and
+`component_summaries.csv` retains raw-vector results while
 `component_summaries_qc_usable.csv` contains the repaired/trimmed results.
 
 The method follows Yu and Xiong's eight body-local limb vectors plus body
