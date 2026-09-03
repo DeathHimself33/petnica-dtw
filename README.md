@@ -194,3 +194,16 @@ observation masks, targets, exercise indices, and one-based outer-fold numbers.
 It is deliberately not globally standardized. During evaluation,
 `FeatureStandardizer` must be fitted separately on each fold's training rows so
 no held-out subject influences preprocessing.
+
+Install the optional NVIDIA/CUDA ML dependency and train the compact baseline:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-ml.txt
+.\.venv\Scripts\python.exe .\train_ml_baseline.py
+```
+
+The model uses three residual temporal-convolution blocks, a bidirectional GRU,
+masked attention, an exercise embedding, and one regression head per exercise.
+Each outer fold keeps its test subjects untouched; the next shared fold is used
+only for early stopping. Per-fold checkpoints and predictions make an interrupted
+run restartable with `--resume`.
