@@ -179,3 +179,18 @@ original Tai Chi experiment.
 The experiment expects `kimore_audit_output/kimore_manifest.csv`. Generated
 results and figures are written under `results/` and `figures/`; both directories
 are ignored by Git.
+
+## ML-ready sequence export
+
+The first temporal-ML data layer reuses the same nine Yu--Xiong unit vectors,
+frame QC, and shared subject folds across Es1--Es5. Export 128-step tensors with:
+
+```powershell
+.\.venv\Scripts\python.exe .\src\kimore_ml_data.py
+```
+
+The generated NPZ contains `(sample, time, 9, 3)` features, frame and component
+observation masks, targets, exercise indices, and one-based outer-fold numbers.
+It is deliberately not globally standardized. During evaluation,
+`FeatureStandardizer` must be fitted separately on each fold's training rows so
+no held-out subject influences preprocessing.
