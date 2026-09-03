@@ -46,6 +46,8 @@ def _validate_inputs(
         raise ValueError("Cannot localize a QC-failed sample")
     if reference_quality.quality_status == "fail":
         raise ValueError("Cannot localize against a QC-failed reference")
+    if prepared.sample.exercise.casefold() != reference.sample.exercise.casefold():
+        raise ValueError("Sample and reference must belong to the same exercise")
     if sample_original.shape != (len(prepared.vectors),):
         raise ValueError("Sample retained-frame map does not match QC vectors")
     if reference_original.shape != (len(reference.vectors),):
@@ -129,6 +131,7 @@ def iter_frame_timeline_rows(
         for component_index, component_name in enumerate(FEATURE_NAMES):
             yield {
                 "fold": fold_number,
+                "exercise": prepared.sample.exercise,
                 "input_variant": "frame_qc",
                 "sample_id": prepared.sample.sample_id,
                 "subject_id": prepared.sample.subject_id,
@@ -239,6 +242,7 @@ def top_deviation_interval_rows(
             candidates.append(
                 {
                     "fold": fold_number,
+                    "exercise": prepared.sample.exercise,
                     "sample_id": prepared.sample.sample_id,
                     "subject_id": prepared.sample.subject_id,
                     "cohort": prepared.sample.cohort,
@@ -307,6 +311,10 @@ def annotation_queue_rows(
     return [
         {
             **row,
+            "candidate_id": (
+                f"{row['exercise']}:{row['sample_id']}:"
+                f"{int(row['candidate_rank'])}"
+            ),
             "review_status": "unreviewed",
             "execution_label": "",
             "error_type": "",

@@ -110,6 +110,11 @@ class InterpretableLocalizationTests(unittest.TestCase):
         self.assertGreaterEqual(intervals[0]["original_frame_start"], 6)
 
         queue = annotation_queue_rows(intervals)
+        self.assertEqual(
+            [row["candidate_id"] for row in queue],
+            ["Es3:sample:1", "Es3:sample:2", "Es3:sample:3"],
+        )
+        self.assertEqual({row["exercise"] for row in queue}, {"Es3"})
         self.assertEqual(queue[0]["review_status"], "unreviewed")
         self.assertEqual(queue[0]["execution_label"], "")
 

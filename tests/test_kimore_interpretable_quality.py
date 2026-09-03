@@ -118,6 +118,24 @@ class InterpretableQualityTests(unittest.TestCase):
         self.assertEqual(quality[0].quality_status, "pass")
         self.assertEqual(overall_quality_status(quality), "fail")
 
+    def test_other_exercises_do_not_reuse_es3_anatomical_rule(self) -> None:
+        sequence = standing_sequence()
+        hip = sequence.positions[:, JOINT_INDEX["HipLeft"]]
+        sequence.positions[:, JOINT_INDEX["KneeLeft"]] = hip + (0.0, 0.3, 0.0)
+
+        quality = assess_component_quality(
+            sequence,
+            yu_xiong_vectors(sequence),
+            exercise="Es2",
+        )
+
+        left_upper_leg = quality[4]
+        self.assertIsNone(left_upper_leg.anatomical_plausibility_fraction)
+        self.assertNotIn(
+            "anatomically_implausible_direction",
+            left_upper_leg.quality_reasons,
+        )
+
     def test_tracking_check_applies_to_arm_components(self) -> None:
         sequence = standing_sequence()
         sequence.tracking_states[:, JOINT_INDEX["ElbowLeft"]] = 1
@@ -216,6 +234,36 @@ class InterpretableQualityTests(unittest.TestCase):
         self.assertTrue(result.interpolated_component_mask[4, 4])
         self.assertTrue(result.interpolated_component_mask[4, 5])
         self.assertTrue(np.array_equal(vectors, original_vectors))
+        self.assertTrue(
+            np.allclose(np.linalg.norm(result.cleaned_vectors, axis=2), 1.0)
+        )
+
+    def test_degenerate_internal_body_frame_reaches_qc_and_is_repaired(self) -> None:
+        sequence = standing_sequence(frames=3)
+        for joint_name in (
+            "ShoulderLeft",
+            "ShoulderRight",
+            "HipLeft",
+            "HipRight",
+        ):
+            sequence.positions[1, JOINT_INDEX[joint_name], 0] = 0.0
+
+        with self.assertRaisesRegex(ValueError, "zero-length"):
+            yu_xiong_vectors(sequence)
+        tolerant_vectors = yu_xiong_vectors(
+            sequence,
+            allow_degenerate_frames=True,
+        )
+        result = apply_frame_quality_control(
+            sequence,
+            tolerant_vectors,
+            exercise="Es2",
+        )
+
+        self.assertEqual(result.interpolated_frames, 1)
+        self.assertEqual(result.dropped_frames, 0)
+        self.assertEqual(result.retained_frames, 3)
+        self.assertTrue(np.isfinite(result.cleaned_vectors).all())
         self.assertTrue(
             np.allclose(np.linalg.norm(result.cleaned_vectors, axis=2), 1.0)
         )

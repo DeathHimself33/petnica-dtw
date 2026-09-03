@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Callable
 
@@ -55,13 +56,18 @@ def run_yu_xiong_evaluation(
     figure_dir: Path,
     bootstrap_resamples: int = 5000,
     progress: Callable[[str], None] = print,
+    subject_fold_assignments: Mapping[str, int] | None = None,
 ) -> dict[str, object]:
     """Run five-fold Yu--Xiong DTW with a training-only KIMORE coach."""
     if bootstrap_resamples < 1:
         raise ValueError("Bootstrap resamples must be at least 1")
 
     samples, excluded = read_manifest(manifest_path, exercise)
-    folds = make_subject_folds(samples, n_splits=5)
+    folds = make_subject_folds(
+        samples,
+        n_splits=5,
+        subject_fold_assignments=subject_fold_assignments,
+    )
     groups = subject_groups(samples)
     validate_oof_indices([fold.test_indices for fold in folds], len(samples))
 
@@ -205,6 +211,7 @@ def run_yu_xiong_evaluation(
             prediction_rows.append(
                 {
                     "fold": fold.number,
+                    "exercise": prepared.sample.exercise,
                     "sample_id": prepared.sample.sample_id,
                     "subject_id": prepared.sample.subject_id,
                     "cohort": prepared.sample.cohort,
@@ -364,6 +371,11 @@ def run_yu_xiong_evaluation(
         "samples": len(samples),
         "unique_subjects": len(set(groups)),
         "folds": len(folds),
+        "fold_strategy": (
+            "shared_subject_assignment_across_exercises"
+            if subject_fold_assignments is not None
+            else "exercise_specific_subject_assignment"
+        ),
         "excluded_samples": excluded,
         "subject_overlap_in_every_fold": 0,
         "oof_prediction_rows": len(prediction_rows),

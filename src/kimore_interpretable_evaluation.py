@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Callable
 
@@ -191,6 +191,7 @@ def _alignment_rows(
         rows.append(
             {
                 "fold": fold_number,
+                "exercise": prepared.sample.exercise,
                 "input_variant": input_variant,
                 "sample_id": prepared.sample.sample_id,
                 "subject_id": prepared.sample.subject_id,
@@ -303,13 +304,18 @@ def run_interpretable_evaluation(
     figure_dir: Path,
     bootstrap_resamples: int = 5000,
     progress: Callable[[str], None] = print,
+    subject_fold_assignments: Mapping[str, int] | None = None,
 ) -> dict[str, object]:
     """Evaluate frame QC and export interpretable held-out alignments."""
     if bootstrap_resamples < 1:
         raise ValueError("Bootstrap resamples must be at least 1")
 
     samples, excluded = read_manifest(manifest_path, exercise)
-    folds = make_subject_folds(samples, n_splits=5)
+    folds = make_subject_folds(
+        samples,
+        n_splits=5,
+        subject_fold_assignments=subject_fold_assignments,
+    )
     groups = subject_groups(samples)
     validate_oof_indices([fold.test_indices for fold in folds], len(samples))
 
@@ -323,7 +329,14 @@ def run_interpretable_evaluation(
     sample_quality_statuses: list[str] = []
     quality_rows: list[dict[str, object]] = []
     for number, sample in enumerate(samples, start=1):
-        prepared = prepare_yu_xiong_sample(sample)
+        # The strict paper feature extractor rejects a recording as soon as a
+        # single body axis or limb has zero length.  The QC variant substitutes
+        # a deterministic unit vector temporarily so its geometry masks can
+        # interpolate a short gap or remove an unresolved frame transparently.
+        prepared = prepare_yu_xiong_sample(
+            sample,
+            allow_degenerate_frames=True,
+        )
         frame_result = apply_frame_quality_control(
             load_joint_positions(sample.position_path),
             prepared.vectors,
@@ -346,6 +359,7 @@ def run_interpretable_evaluation(
         for component in quality:
             quality_rows.append(
                 {
+                    "exercise": sample.exercise,
                     "sample_id": sample.sample_id,
                     "subject_id": sample.subject_id,
                     "cohort": sample.cohort,
@@ -710,6 +724,7 @@ def run_interpretable_evaluation(
             prediction_rows.append(
                 {
                     "fold": fold.number,
+                    "exercise": prepared.sample.exercise,
                     "sample_id": prepared.sample.sample_id,
                     "subject_id": prepared.sample.subject_id,
                     "cohort": prepared.sample.cohort,
@@ -987,6 +1002,11 @@ def run_interpretable_evaluation(
         "samples": len(samples),
         "unique_subjects": len(set(groups)),
         "folds": len(folds),
+        "fold_strategy": (
+            "shared_subject_assignment_across_exercises"
+            if subject_fold_assignments is not None
+            else "exercise_specific_subject_assignment"
+        ),
         "excluded_samples": excluded,
         "subject_overlap_in_every_fold": 0,
         "component_rows": len(rows),
@@ -1011,6 +1031,12 @@ def run_interpretable_evaluation(
         "dropped_frames": sum(result.dropped_frames for result in frame_quality),
         "components_per_sample": FEATURE_DIMENSIONS,
         "quality_counts": quality_counts,
+        "anatomical_qc_policy": (
+            "Es3 adds the validated torso-up and leg-direction plausibility "
+            "checks; Es1, Es2, Es4 and Es5 use tracking, source-length and "
+            "temporal-continuity QC only until exercise-specific anatomical "
+            "rules are defined"
+        ),
         "calibration": (
             "separate ordinary least-squares TS calibrations for raw and frame-QC "
             "paper scores, each fitted only on QC-usable outer-training rows"

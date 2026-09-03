@@ -12,12 +12,14 @@ import numpy as np
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from kimore_dataset import JOINT_INDEX, JOINT_NAMES  # noqa: E402
 from kimore_evaluation import run_cross_validated_evaluation  # noqa: E402
 from kimore_interpretable_evaluation import run_interpretable_evaluation  # noqa: E402
 from kimore_yu_xiong_evaluation import run_yu_xiong_evaluation  # noqa: E402
+from run_experiment import main as run_experiment_main  # noqa: E402
 
 
 def write_synthetic_recording(path: Path, yaw_offset: float) -> int:
@@ -84,6 +86,96 @@ def write_synthetic_full_body_recording(path: Path, yaw_offset: float) -> int:
 
 
 class EndToEndExperimentTests(unittest.TestCase):
+    def test_all_exercise_run_uses_shared_folds_and_combines_queues(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "manifest.csv"
+            rows: list[dict[str, object]] = []
+            for exercise in ("Es1", "Es2", "Es3", "Es4", "Es5"):
+                for number in range(5):
+                    subject_id = f"SYN_ID{number + 1}"
+                    sample_id = f"{subject_id}_{exercise}"
+                    position_path = root / f"{sample_id}.csv"
+                    frames = write_synthetic_full_body_recording(
+                        position_path,
+                        yaw_offset=float(number * 4),
+                    )
+                    rows.append(
+                        {
+                            "sample_id": sample_id,
+                            "subject_id": subject_id,
+                            "cohort": "synthetic",
+                            "exercise": exercise,
+                            "clinical_ts": 30.0 + number,
+                            "position_frames": frames,
+                            "position_columns": 100,
+                            "position_path": str(position_path),
+                            "issues": "",
+                        }
+                    )
+
+            with manifest.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+                writer.writeheader()
+                writer.writerows(rows)
+
+            output_root = root / "results"
+            figure_root = root / "figures"
+            exit_code = run_experiment_main(
+                [
+                    "--manifest",
+                    str(manifest),
+                    "--exercise",
+                    "all",
+                    "--method",
+                    "interpretable_dtw",
+                    "--bootstrap-resamples",
+                    "2",
+                    "--output-dir",
+                    str(output_root),
+                    "--figure-dir",
+                    str(figure_root),
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
+            batch_summary = json.loads(
+                (output_root / "all_exercises_summary.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(batch_summary["unique_subjects"], 5)
+            self.assertEqual(
+                batch_summary["fold_strategy"],
+                "shared_subject_assignment_across_exercises",
+            )
+            self.assertEqual(
+                set(batch_summary["exercise_results"]),
+                {"Es1", "Es2", "Es3", "Es4", "Es5"},
+            )
+
+            with (
+                output_root / "annotation_queue_all_exercises.csv"
+            ).open(encoding="utf-8", newline="") as handle:
+                queue_rows = list(csv.DictReader(handle))
+            self.assertEqual(len(queue_rows), 125)
+            self.assertEqual(
+                {row["exercise"] for row in queue_rows},
+                {"Es1", "Es2", "Es3", "Es4", "Es5"},
+            )
+            self.assertEqual(len({row["candidate_id"] for row in queue_rows}), 125)
+
+            for exercise in ("Es1", "Es2", "Es3", "Es4", "Es5"):
+                summary = json.loads(
+                    (
+                        output_root / exercise / "evaluation_summary.json"
+                    ).read_text(encoding="utf-8")
+                )
+                self.assertEqual(
+                    summary["fold_strategy"],
+                    "shared_subject_assignment_across_exercises",
+                )
+
     def test_small_manifest_runs_through_all_five_folds_and_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -229,6 +321,11 @@ class EndToEndExperimentTests(unittest.TestCase):
             )
 
             self.assertEqual(summary["method"], "interpretable_dtw")
+            self.assertEqual(summary["exercise"], "Es3")
+            self.assertEqual(
+                summary["fold_strategy"],
+                "exercise_specific_subject_assignment",
+            )
             self.assertEqual(summary["samples"], 5)
             self.assertEqual(summary["component_rows"], 45)
             self.assertEqual(summary["qc_usable_samples"], 5)
@@ -287,6 +384,7 @@ class EndToEndExperimentTests(unittest.TestCase):
             ) as handle:
                 prediction_rows = list(csv.DictReader(handle))
             self.assertEqual(len(prediction_rows), 5)
+            self.assertEqual({row["exercise"] for row in prediction_rows}, {"Es3"})
             self.assertEqual(
                 {row["sample_quality_status"] for row in prediction_rows},
                 {"pass"},
@@ -303,6 +401,7 @@ class EndToEndExperimentTests(unittest.TestCase):
             ) as handle:
                 timeline_rows = list(csv.DictReader(handle))
             self.assertEqual(len(timeline_rows), 225)
+            self.assertEqual({row["exercise"] for row in timeline_rows}, {"Es3"})
             self.assertEqual(
                 {row["interpretation"] for row in timeline_rows},
                 {
@@ -316,6 +415,8 @@ class EndToEndExperimentTests(unittest.TestCase):
             ) as handle:
                 annotation_rows = list(csv.DictReader(handle))
             self.assertEqual(len(annotation_rows), 25)
+            self.assertEqual({row["exercise"] for row in annotation_rows}, {"Es3"})
+            self.assertEqual(len({row["candidate_id"] for row in annotation_rows}), 25)
             self.assertEqual(
                 {row["review_status"] for row in annotation_rows},
                 {"unreviewed"},

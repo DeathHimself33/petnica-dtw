@@ -225,10 +225,20 @@ def _body_frame_masks(
     hip_right = positions[:, JOINT_INDEX["HipRight"]]
     shoulder_midpoint = (shoulder_left + shoulder_right) / 2.0
     hip_midpoint = (hip_left + hip_right) / 2.0
+    body_up = shoulder_midpoint - hip_midpoint
+    body_up_lengths = np.linalg.norm(body_up, axis=1)
+    safe_up = body_up / np.maximum(body_up_lengths[:, np.newaxis], 1e-12)
+    body_left_raw = (
+        (shoulder_left - shoulder_right) + (hip_left - hip_right)
+    ) / 2.0
+    body_left_orthogonal = body_left_raw - (
+        np.sum(body_left_raw * safe_up, axis=1, keepdims=True) * safe_up
+    )
     source_lengths = (
-        np.linalg.norm(shoulder_midpoint - hip_midpoint, axis=1),
+        body_up_lengths,
         np.linalg.norm(shoulder_left - shoulder_right, axis=1),
         np.linalg.norm(hip_left - hip_right, axis=1),
+        np.linalg.norm(body_left_orthogonal, axis=1),
     )
     stable = np.ones(len(positions), dtype=bool)
     diagnostically_stable = np.ones(len(positions), dtype=bool)

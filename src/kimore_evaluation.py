@@ -8,6 +8,7 @@ import json
 import platform
 import subprocess
 from collections import Counter
+from collections.abc import Mapping
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Callable, Sequence
@@ -674,6 +675,7 @@ def run_cross_validated_evaluation(
     figure_dir: Path,
     bootstrap_resamples: int = 5000,
     progress: Callable[[str], None] = print,
+    subject_fold_assignments: Mapping[str, int] | None = None,
 ) -> dict[str, object]:
     """Run the frozen five-fold baseline and save complete OOF evaluation artifacts."""
     if exercise.casefold() != SUPPORTED_EXERCISE.casefold():
@@ -684,7 +686,11 @@ def run_cross_validated_evaluation(
     if bootstrap_resamples < 1:
         raise ValueError("Bootstrap resamples must be at least 1")
     samples, excluded = read_manifest(manifest_path, exercise)
-    folds = make_subject_folds(samples, n_splits=5)
+    folds = make_subject_folds(
+        samples,
+        n_splits=5,
+        subject_fold_assignments=subject_fold_assignments,
+    )
     groups = subject_groups(samples)
     validate_oof_indices([fold.test_indices for fold in folds], len(samples))
 

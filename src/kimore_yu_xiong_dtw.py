@@ -72,7 +72,11 @@ class YuXiongAlignment:
     paper_score: float
 
 
-def _unit_vectors(vectors: np.ndarray, name: str) -> np.ndarray:
+def _unit_vectors(
+    vectors: np.ndarray,
+    name: str,
+    zero_fallback: np.ndarray | None = None,
+) -> np.ndarray:
     values = np.asarray(vectors, dtype=np.float64)
     if values.ndim < 1 or values.shape[-1] != 3:
         raise ValueError(f"{name} must have XYZ as its final dimension")
@@ -82,12 +86,29 @@ def _unit_vectors(vectors: np.ndarray, name: str) -> np.ndarray:
     lengths = np.linalg.norm(values, axis=-1, keepdims=True)
     invalid = lengths[..., 0] <= np.finfo(np.float64).eps
     if invalid.any():
-        first = tuple(int(index) for index in np.argwhere(invalid)[0])
-        raise ValueError(f"{name} contains a zero-length vector at index {first}")
+        if zero_fallback is None:
+            first = tuple(int(index) for index in np.argwhere(invalid)[0])
+            raise ValueError(f"{name} contains a zero-length vector at index {first}")
+        fallback = np.broadcast_to(
+            np.asarray(zero_fallback, dtype=np.float64),
+            values.shape,
+        )
+        fallback_lengths = np.linalg.norm(fallback, axis=-1, keepdims=True)
+        if (
+            not np.isfinite(fallback).all()
+            or np.any(fallback_lengths[..., 0] <= np.finfo(np.float64).eps)
+        ):
+            raise ValueError(f"{name} zero-vector fallback must be finite and nonzero")
+        normalized = values / np.where(invalid[..., np.newaxis], 1.0, lengths)
+        normalized[invalid] = (fallback / fallback_lengths)[invalid]
+        return normalized
     return values / lengths
 
 
-def yu_xiong_vectors(sequence: JointSequence) -> np.ndarray:
+def yu_xiong_vectors(
+    sequence: JointSequence,
+    allow_degenerate_frames: bool = False,
+) -> np.ndarray:
     """Return the paper's eight body-local bones and world forward vector.
 
     The frame axes follow the construction described in Section 2.1.3: torso
@@ -115,16 +136,47 @@ def yu_xiong_vectors(sequence: JointSequence) -> np.ndarray:
 
     shoulder_midpoint = (shoulder_left + shoulder_right) / 2.0
     hip_midpoint = (hip_left + hip_right) / 2.0
-    up = _unit_vectors(shoulder_midpoint - hip_midpoint, "body up")
+    up = _unit_vectors(
+        shoulder_midpoint - hip_midpoint,
+        "body up",
+        zero_fallback=(
+            np.asarray([0.0, 1.0, 0.0])
+            if allow_degenerate_frames
+            else None
+        ),
+    )
 
     left_raw = (
         (shoulder_left - shoulder_right) + (hip_left - hip_right)
     ) / 2.0
     left_orthogonal = left_raw - np.sum(left_raw * up, axis=1, keepdims=True) * up
-    left = _unit_vectors(left_orthogonal, "body left")
-    forward = _unit_vectors(np.cross(up, left), "body forward")
+    fallback_axis = np.zeros_like(up)
+    fallback_axis[:, 0] = 1.0
+    near_x = np.abs(up[:, 0]) > 0.90
+    fallback_axis[near_x] = (0.0, 0.0, 1.0)
+    fallback_left = fallback_axis - (
+        np.sum(fallback_axis * up, axis=1, keepdims=True) * up
+    )
+    left = _unit_vectors(
+        left_orthogonal,
+        "body left",
+        zero_fallback=fallback_left if allow_degenerate_frames else None,
+    )
+    forward = _unit_vectors(
+        np.cross(up, left),
+        "body forward",
+        zero_fallback=(
+            np.asarray([0.0, 0.0, 1.0])
+            if allow_degenerate_frames
+            else None
+        ),
+    )
     # Recompute left to eliminate accumulated floating-point non-orthogonality.
-    left = _unit_vectors(np.cross(forward, up), "orthogonal body left")
+    left = _unit_vectors(
+        np.cross(forward, up),
+        "orthogonal body left",
+        zero_fallback=fallback_left if allow_degenerate_frames else None,
+    )
 
     world_bones = np.stack(
         [
@@ -133,7 +185,15 @@ def yu_xiong_vectors(sequence: JointSequence) -> np.ndarray:
         ],
         axis=1,
     )
-    world_bones = _unit_vectors(world_bones, "limb bones")
+    world_bones = _unit_vectors(
+        world_bones,
+        "limb bones",
+        zero_fallback=(
+            np.asarray([1.0, 0.0, 0.0])
+            if allow_degenerate_frames
+            else None
+        ),
+    )
     local_bones = np.stack(
         (
             np.einsum("fbd,fd->fb", world_bones, left),
@@ -143,10 +203,21 @@ def yu_xiong_vectors(sequence: JointSequence) -> np.ndarray:
         axis=2,
     )
     vectors = np.concatenate((local_bones, forward[:, np.newaxis, :]), axis=1)
-    return _unit_vectors(vectors, "Yu--Xiong features")
+    return _unit_vectors(
+        vectors,
+        "Yu--Xiong features",
+        zero_fallback=(
+            np.asarray([1.0, 0.0, 0.0])
+            if allow_degenerate_frames
+            else None
+        ),
+    )
 
 
-def prepare_yu_xiong_sample(sample: KimoreSample) -> YuXiongPreparedSample:
+def prepare_yu_xiong_sample(
+    sample: KimoreSample,
+    allow_degenerate_frames: bool = False,
+) -> YuXiongPreparedSample:
     sequence = load_joint_positions(sample.position_path)
     if len(sequence.positions) != sample.frames:
         raise ValueError(
@@ -158,7 +229,10 @@ def prepare_yu_xiong_sample(sample: KimoreSample) -> YuXiongPreparedSample:
     fully_tracked = np.all(sequence.tracking_states[:, required_indices] == 2, axis=1)
     return YuXiongPreparedSample(
         sample=sample,
-        vectors=yu_xiong_vectors(sequence),
+        vectors=yu_xiong_vectors(
+            sequence,
+            allow_degenerate_frames=allow_degenerate_frames,
+        ),
         required_joints_tracked_fraction=float(np.mean(fully_tracked)),
     )
 

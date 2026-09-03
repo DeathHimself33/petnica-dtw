@@ -85,6 +85,28 @@ Run the Yu--Xiong comparison baseline on the same exercise:
 .\.venv\Scripts\python.exe run_experiment.py --exercise Es3 --method yu_xiong_dtw
 ```
 
+Run the full interpretable pipeline for all five exercises:
+
+```powershell
+.\.venv\Scripts\python.exe run_experiment.py --exercise all --method interpretable_dtw
+```
+
+The all-exercise command is intentionally the QC/interpretable variant. The
+strict Yu--Xiong comparator can reject a whole recording when even one Kinect
+frame contains a zero-length body axis or limb, whereas the interpretable
+pipeline records, repairs, or removes those frames transparently.
+
+The all-exercise run creates one shared subject-to-fold assignment and reuses it
+for Es1--Es5. This is required for later multi-exercise learning: a person can
+never be in the training side for one exercise and the corresponding test side
+for another. Exercise-specific artifacts are written to
+`results/interpretable_dtw/all_exercises/Es1/` through `Es5/`; combined
+prediction, candidate, interval, and quality CSVs plus `subject_folds.json` and
+`all_exercises_summary.json` are written one directory above them. Default
+single-exercise outputs remain separately exercise-scoped, for example
+`results/interpretable_dtw/Es3/`. A standalone run therefore cannot overwrite
+an Es3 result produced under the shared all-exercise fold protocol.
+
 Export and plot the interpretable per-component analysis:
 
 ```powershell
@@ -126,9 +148,11 @@ The first pass contains 100 candidates and is explicitly non-clinical; an
 independent reviewer must complete the generated blinded
 `second_review_queue.csv` before any ground-truth claim.
 
-Frame QC checks tracking, source-bone length, isolated angular jumps, and Es3
-anatomical direction for each of the nine features. Internal invalid runs of at
-most five frames are interpolated between valid unit-vector endpoints;
+Frame QC checks tracking, source-bone length, and isolated angular jumps for all
+exercises. Es3 additionally uses its existing torso-up and leg-direction
+plausibility checks. The other exercises deliberately do not reuse the Es3
+anatomical rule until exercise-specific rules are defined. Internal invalid runs
+of at most five frames are interpolated between valid unit-vector endpoints;
 unresolved invalid frames are removed from the QC sequence. A recording is
 rejected only when less than 80% remains, one removed run exceeds 10% of the
 recording, fewer than two usable frames remain, or a component is almost never
