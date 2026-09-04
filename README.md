@@ -38,6 +38,9 @@ model. Raw KIMORE data and generated experiment outputs are not included.
 - `annotations/kimore_es3_pilot_labels.csv`: versioned preliminary first-pass
   labels for the 100-row localization pilot.
 - `run_experiment.py`: command-line entry point.
+- `analyze_ml_results.py`: repeated-seed OOF aggregation, ensemble evaluation,
+  and subject-bootstrap comparison against QC-DTW.
+- `ML_BASELINE_REPORT.md`: frozen five-seed result and interpretation limits.
 - `tests/`: automated tests for the dataset, preprocessing, grouping, DTW, and
   evaluation code.
 
@@ -207,3 +210,22 @@ masked attention, an exercise embedding, and one regression head per exercise.
 Each outer fold keeps its test subjects untouched; the next shared fold is used
 only for early stopping. Per-fold checkpoints and predictions make an interrupted
 run restartable with `--resume`.
+
+For a robustness check, train repeated seeds into separate output directories
+and aggregate only complete runs. The analysis verifies that every run contains
+the same held-out samples, targets, and folds; averages their OOF predictions;
+and computes paired subject-bootstrap intervals against QC-DTW and the
+training-only exercise mean:
+
+```powershell
+.\.venv\Scripts\python.exe .\analyze_ml_results.py `
+    --run-dir results\ml_baseline\tcn_bigru_attention `
+    --run-dir results\ml_baseline\tcn_bigru_attention_seed_20260904 `
+    --run-dir results\ml_baseline\tcn_bigru_attention_seed_20260905 `
+    --run-dir results\ml_baseline\tcn_bigru_attention_seed_20260906 `
+    --run-dir results\ml_baseline\tcn_bigru_attention_seed_20260907
+```
+
+This is a post-hoc sensitivity analysis on the same fixed outer folds, not an
+independent external validation. Its ensemble, per-seed metrics, and bootstrap
+intervals are written under `results/ml_baseline/multiseed_analysis/`.
