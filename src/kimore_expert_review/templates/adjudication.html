@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Adjudikacija {{ position }} · KIMORE Review{% endblock %}
+{% block content %}
+  <div class="workspace-heading">
+    <div>
+      <p class="eyebrow">Adjudikacija {{ position }} od {{ total }} · {{ adjudicator_id }}</p>
+      <h1>{{ candidate.component_label|title }}</h1>
+      <p class="lead compact">Interval {{ candidate.interval_label }}</p>
+    </div>
+  </div>
+
+  <section class="comparison-grid" aria-label="Oznake recenzenata">
+    <article class="review-result">
+      <span>Preliminarni reviewer</span>
+      <strong>{{ label_names[primary.execution_label] }}</strong>
+      {% if primary.error_type %}<p>{{ error_type_names[primary.error_type] }} · {{ severity_names[primary.severity] }}</p>{% endif %}
+      <blockquote>{{ primary.review_notes or "Bez beleške." }}</blockquote>
+    </article>
+    <article class="review-result">
+      <span>Nezavisni reviewer</span>
+      <strong>{{ label_names[second.execution_label] }}</strong>
+      {% if second.error_type %}<p>{{ error_type_names[second.error_type] }} · {{ severity_names[second.severity] }}</p>{% endif %}
+      <blockquote>{{ second.review_notes or "Bez beleške." }}</blockquote>
+    </article>
+  </section>
+
+  <section class="evidence-panel">
+    <img class="evidence-image" src="{{ url_for('evidence', position=evidence_position) }}"
+         alt="Zaslepljeni pregled uzorka, reference i izabranog intervala">
+  </section>
+
+  <form method="post" class="review-form" data-review-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset>
+      <legend>Finalna oznaka</legend>
+      <div class="choice-grid choice-grid-two">
+        {% for value in ['correct', 'error'] %}
+          <label class="choice-card">
+            <input type="radio" name="execution_label" value="{{ value }}"
+                   {% if saved and saved.execution_label == value %}checked{% endif %} required>
+            <span>{{ label_names[value] }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <div class="detail-grid" data-error-details>
+      <label>Tip greške
+        <select name="error_type">
+          <option value="">Izaberite…</option>
+          {% for value in error_types %}<option value="{{ value }}" {% if saved and saved.error_type == value %}selected{% endif %}>{{ error_type_names[value] }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Težina
+        <select name="severity">
+          <option value="">Izaberite…</option>
+          {% for value in severities %}<option value="{{ value }}" {% if saved and saved.severity == value %}selected{% endif %}>{{ severity_names[value] }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <fieldset>
+      <legend>Sigurnost finalne procene</legend>
+      <div class="choice-grid choice-grid-three">
+        {% for value in confidences %}
+          <label class="choice-card compact-choice">
+            <input type="radio" name="reviewer_confidence" value="{{ value }}"
+                   {% if saved and saved.reviewer_confidence == value %}checked{% endif %} required>
+            <span>{{ confidence_names[value] }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <label for="review_notes">Obrazloženje odluke</label>
+    <textarea id="review_notes" name="review_notes" rows="3" maxlength="1000" required>{{ saved.review_notes if saved else '' }}</textarea>
+    <div class="form-actions">
+      {% if position > 1 %}<a class="button button-secondary" href="{{ url_for('adjudication_item', position=position-1) }}">Prethodna</a>{% endif %}
+      <button class="button button-primary" type="submit">Sačuvaj finalnu odluku</button>
+    </div>
+  </form>
+{% endblock %}

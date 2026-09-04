@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Adjudikacija · KIMORE Review{% endblock %}
+{% block content %}
+  <section class="narrow-panel">
+    <p class="eyebrow">Razrešavanje neslaganja</p>
+    <h1>Adjudikacija</h1>
+    {% if disagreements %}
+      <p class="lead">{{ disagreements|length }} stavki zahteva zajedničku ili treću procenu. Završeno je {{ adjudicated }}.</p>
+      <form method="post" class="start-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="adjudicator_id">Adjudicator ID</label>
+        <p class="field-help">Mora biti različit od ID-a nezavisnog drugog reviewera.</p>
+        <div class="input-action">
+          <input id="adjudicator_id" name="adjudicator_id" value="{{ adjudicator_id }}"
+                 minlength="2" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9_.-]{1,63}" required>
+          <button class="button button-primary" type="submit">Počni adjudikaciju</button>
+        </div>
+      </form>
+    {% else %}
+      <p class="lead">Nema neslaganja za razrešavanje.</p>
+      <a class="button button-primary" href="{{ url_for('agreement') }}">Nazad na rezultate</a>
+    {% endif %}
+  </section>
+{% endblock %}

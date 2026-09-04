@@ -33,6 +33,8 @@ model. Raw KIMORE data and generated experiment outputs are not included.
   RGB/reference review-sheet generation.
 - `src/kimore_apply_pilot_labels.py`: strict label validation, queue merge,
   summary export, and blinded second-review sampling.
+- `expert_review_app.py`: local blinded expert-review web app with SQLite
+  persistence, agreement metrics, adjudication, and CSV export.
 - `src/kimore_evaluation.py`: five-fold evaluation, metrics, diagnostics, and
   output generation.
 - `annotations/kimore_es3_pilot_labels.csv`: versioned preliminary first-pass
@@ -150,6 +152,27 @@ The result and its limitations are documented in `PILOT_LABEL_REPORT.md`.
 The first pass contains 100 candidates and is explicitly non-clinical; an
 independent reviewer must complete the generated blinded
 `second_review_queue.csv` before any ground-truth claim.
+
+### Local expert-review application
+
+Start the blinded second-review workflow with:
+
+```powershell
+.\.venv\Scripts\python.exe .\expert_review_app.py
+```
+
+Open `http://127.0.0.1:5050`. The reviewer enters a stable pseudonymous ID,
+labels all 20 items, and then permanently seals that review before the
+first-pass labels become visible. The app computes exact agreement and Cohen's
+kappa, creates an adjudication queue, and exports both the completed second
+review and final adjudicated CSV files. Progress is stored in the ignored local
+SQLite database under `results/interpretable_dtw/expert_review/`.
+
+The app serves a cropped evidence view rather than the original review sheet:
+clinical TS, cohort, DTW magnitude, candidate rank, and other candidate rows
+remain hidden during independent review. Do not expose the Flask development
+server directly to the public internet. Binding `--host 0.0.0.0` is suitable
+only on a trusted LAN or behind authenticated private-network access.
 
 Frame QC checks tracking, source-bone length, and isolated angular jumps for all
 exercises. Es3 additionally uses its existing torso-up and leg-direction

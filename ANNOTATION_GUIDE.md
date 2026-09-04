@@ -48,3 +48,12 @@ second-review set are under `results/interpretable_dtw/pilot_review/`.
 These labels are explicitly non-clinical and preliminary. Do not call them
 ground truth until the independent review and adjudication gate in the report
 has been completed.
+
+## Blinded web workflow
+
+Run `expert_review_app.py` for the independent second pass. The application
+uses `second_review_queue.csv`, hides clinical score and automatic deviation
+information, saves responses in SQLite, and prevents edits after the reviewer
+seals the completed queue. Only then does it reveal first-pass labels for
+agreement measurement and adjudication. The exported second-review CSV keeps
+the original queue schema and can be archived alongside the frozen protocol.

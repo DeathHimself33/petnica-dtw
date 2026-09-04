@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Napredak · KIMORE Review{% endblock %}
+{% block content %}
+  <div class="workspace-heading">
+    <div>
+      <p class="eyebrow">Reviewer {{ progress.reviewer_id }}</p>
+      <h1>{% if progress.sealed %}Pregled je zaključen{% else %}Napredak pregleda{% endif %}</h1>
+    </div>
+    <div class="metric-number">{{ progress.reviewed }}<span>/{{ progress.total }}</span></div>
+  </div>
+
+  <progress class="progress-large" value="{{ progress.reviewed }}" max="{{ progress.total }}">{{ progress.percent }}%</progress>
+
+  <section class="item-list" aria-label="Stavke za pregled">
+    {% for item in items %}
+      <a class="item-row" href="{{ url_for('review_item', position=item.position) }}">
+        <span class="item-number">{{ "%02d"|format(item.position) }}</span>
+        <span class="item-main">
+          <strong>{{ item.candidate.component_label|title }}</strong>
+          <small>{{ item.candidate.interval_label }}</small>
+        </span>
+        {% if item.review %}
+          <span class="status status-complete">{{ label_names[item.review.execution_label] }}</span>
+        {% else %}
+          <span class="status status-pending">Čeka</span>
+        {% endif %}
+      </a>
+    {% endfor %}
+  </section>
+
+  {% if not progress.sealed %}
+    <section class="finish-panel">
+      <div>
+        <h2>Zaključavanje nezavisnog pregleda</h2>
+        <p>Nakon zaključavanja odgovori se više ne mogu menjati, a preliminarne oznake postaju vidljive.</p>
+      </div>
+      <form method="post" action="{{ url_for('finish') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="button button-primary" type="submit" {% if progress.remaining %}disabled{% endif %}>
+          Zaključi svih {{ progress.total }} odgovora
+        </button>
+      </form>
+    </section>
+  {% else %}
+    <a class="button button-primary" href="{{ url_for('agreement') }}">Otvori slaganje recenzenata</a>
+  {% endif %}
+{% endblock %}

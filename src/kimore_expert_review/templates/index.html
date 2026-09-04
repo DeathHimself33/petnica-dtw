@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Početak · KIMORE Review{% endblock %}
+{% block content %}
+  <section class="start-grid">
+    <div class="start-panel">
+      <p class="eyebrow">Nezavisna ekspertna procena</p>
+      <h1>Zaslepljeni pregled pokreta</h1>
+      <p class="lead">
+        Ocenjujete jednu komponentu i vremenski interval po snimku. Klinički skor,
+        DTW odstupanje, rang kandidata i preliminarna oznaka ostaju sakriveni.
+      </p>
+
+      {% if progress %}
+        <div class="resume-card">
+          <div>
+            <span class="meta-label">Aktivni reviewer</span>
+            <strong>{{ progress.reviewer_id }}</strong>
+          </div>
+          <div>
+            <span class="meta-label">Napredak</span>
+            <strong>{{ progress.reviewed }}/{{ progress.total }}</strong>
+          </div>
+          <a class="button button-primary" href="{{ url_for('agreement') if progress.sealed else url_for('review_next') }}">
+            {% if progress.sealed %}Otvori rezultate{% else %}Nastavi pregled{% endif %}
+          </a>
+        </div>
+      {% else %}
+        <form method="post" action="{{ url_for('start_session') }}" class="start-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label for="reviewer_id">Reviewer ID</label>
+          <p class="field-help">Koristite stabilnu šifru, ne puno ime. Primer: <code>expert_02</code>.</p>
+          <div class="input-action">
+            <input id="reviewer_id" name="reviewer_id" minlength="2" maxlength="64"
+                   pattern="[A-Za-z0-9][A-Za-z0-9_.-]{1,63}" required autocomplete="off">
+            <button class="button button-primary" type="submit">Počni</button>
+          </div>
+        </form>
+      {% endif %}
+    </div>
+
+    <aside class="protocol-panel" aria-labelledby="protocol-heading">
+      <div class="protocol-count">{{ queue_items }}</div>
+      <h2 id="protocol-heading">stavki u slepom pregledu</h2>
+      <ol class="protocol-list">
+        <li>Ocenite samo naznačenu komponentu u datom intervalu.</li>
+        <li>Ne zaključujte iz samog DTW izbora kandidata.</li>
+        <li>Za nesiguran ili neocenjiv primer obavezno dodajte razlog.</li>
+        <li>Primarne oznake se otkrivaju tek nakon zaključavanja svih odgovora.</li>
+      </ol>
+      {% if primary_annotators %}
+        <p class="privacy-note">Reviewer ID mora biti različit od preliminarnog recenzenta.</p>
+      {% endif %}
+    </aside>
+  </section>
+{% endblock %}

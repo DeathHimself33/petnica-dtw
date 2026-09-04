@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Stavka {{ position }} · KIMORE Review{% endblock %}
+{% block content %}
+  <div class="workspace-heading">
+    <div>
+      <p class="eyebrow">Stavka {{ position }} od {{ total }}</p>
+      <h1>{{ candidate.component_label|title }}</h1>
+      <p class="lead compact">Ocenite samo ovu komponentu tokom intervala {{ candidate.interval_label }}.</p>
+    </div>
+    <div class="progress-block" aria-label="Napredak {{ progress.percent }} procenata">
+      <span>{{ progress.reviewed }}/{{ progress.total }}</span>
+      <progress value="{{ progress.reviewed }}" max="{{ progress.total }}">{{ progress.percent }}%</progress>
+    </div>
+  </div>
+
+  <section class="evidence-panel" aria-labelledby="evidence-heading">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Vizuelni dokaz</p>
+        <h2 id="evidence-heading">Uzorak naspram reference</h2>
+      </div>
+      <p>Gornja dva reda prikazuju tok oba snimka; donji red prikazuje tri frejma uzorka i tri referentna frejma iz izabranog intervala.</p>
+    </div>
+    <img class="evidence-image" src="{{ url_for('evidence', position=position) }}"
+         alt="Zaslepljeni pregled uzorka, reference i izabranog intervala">
+  </section>
+
+  <form method="post" class="review-form" data-review-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset {% if sealed %}disabled{% endif %}>
+      <legend>Procena izvođenja</legend>
+      <div class="choice-grid choice-grid-four">
+        {% for value in execution_labels %}
+          <label class="choice-card">
+            <input type="radio" name="execution_label" value="{{ value }}"
+                   {% if saved and saved.execution_label == value %}checked{% endif %} required>
+            <span>{{ label_names[value] }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <div class="detail-grid" data-error-details>
+      <label>Tip greške
+        <select name="error_type" {% if sealed %}disabled{% endif %}>
+          <option value="">Izaberite…</option>
+          {% for value in error_types %}
+            <option value="{{ value }}" {% if saved and saved.error_type == value %}selected{% endif %}>{{ error_type_names[value] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Težina
+        <select name="severity" {% if sealed %}disabled{% endif %}>
+          <option value="">Izaberite…</option>
+          {% for value in severities %}
+            <option value="{{ value }}" {% if saved and saved.severity == value %}selected{% endif %}>{{ severity_names[value] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <fieldset {% if sealed %}disabled{% endif %}>
+      <legend>Sigurnost procene</legend>
+      <div class="choice-grid choice-grid-three">
+        {% for value in confidences %}
+          <label class="choice-card compact-choice">
+            <input type="radio" name="reviewer_confidence" value="{{ value }}"
+                   {% if saved and saved.reviewer_confidence == value %}checked{% endif %} required>
+            <span>{{ confidence_names[value] }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <label for="review_notes">Kratko obrazloženje</label>
+    <textarea id="review_notes" name="review_notes" rows="3" maxlength="1000"
+              {% if sealed %}disabled{% endif %}
+              placeholder="Šta je vidljivo u označenoj komponenti i intervalu?">{{ saved.review_notes if saved else '' }}</textarea>
+    <p class="field-help">Obavezno za „Nesigurno” i „Nije moguće oceniti”.</p>
+
+    <div class="form-actions">
+      {% if position > 1 %}<a class="button button-secondary" href="{{ url_for('review_item', position=position-1) }}">Prethodna</a>{% endif %}
+      {% if not sealed %}<button class="button button-primary" type="submit">Sačuvaj i nastavi</button>{% endif %}
+      {% if position < total %}<a class="button button-quiet" href="{{ url_for('review_item', position=position+1) }}">Preskoči za sada</a>{% endif %}
+    </div>
+  </form>
+{% endblock %}

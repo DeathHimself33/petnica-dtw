@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="sr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}KIMORE Review{% endblock %}</title>
+    <meta name="description" content="Zaslepljeni ekspertski pregled KIMORE DTW kandidata.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='review.css') }}">
+    <script defer src="{{ url_for('static', filename='review.js') }}"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="{{ url_for('index') }}" aria-label="KIMORE Review početna">
+        <span class="brand-mark" aria-hidden="true">KR</span>
+        <span>KIMORE Review</span>
+      </a>
+      {% if active_reviewer %}
+        <nav aria-label="Glavna navigacija">
+          <a href="{{ url_for('review_next') }}">Pregled</a>
+          <a href="{{ url_for('progress') }}">Napredak</a>
+          {% if nav_sealed %}<a href="{{ url_for('agreement') }}">Slaganje</a>{% endif %}
+        </nav>
+        <form method="post" action="{{ url_for('end_session') }}" class="session-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <span class="reviewer-chip">{{ active_reviewer }}</span>
+          <button class="button button-quiet" type="submit">Promeni</button>
+        </form>
+      {% endif %}
+    </header>
+
+    <main class="page-shell">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-stack" role="status" aria-live="polite">
+            {% for category, message in messages %}
+              <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>
