@@ -884,6 +884,9 @@ tbody th {
   }
 }
 
+video { display: block; width: 100%; max-height: 540px; background: #101820; border-radius: 12px; }
+[data-movement-progress] { width: 100%; }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

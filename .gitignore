@@ -9,6 +9,11 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.cache/
+.ipynb_checkpoints/
+.coverage
+.coverage.*
+htmlcov/
 *.egg-info/
 build/
 dist/
@@ -43,6 +48,24 @@ desktop.ini
 /outputs/
 /results/
 /figures/
+/data/processed/
+/data/interim/
+/checkpoints/
+/logs/
+/runs/
+/wandb/
+/mlruns/
+
+# Generated model weights and packed numerical datasets
+*.pt
+*.pth
+*.ckpt
+*.npz
+*.npy
+*.log
+
+# Keep audit scripts, reports, and annotation/provenance records versioned.
+# Regenerated evidence belongs under results/ or kimore_audit_output/.
 
 kimore_manifest.csv
 kimore_audit_summary.txt

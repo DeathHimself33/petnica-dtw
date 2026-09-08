@@ -6,6 +6,10 @@ import csv
 import io
 import os
 import secrets
+import hashlib
+import json
+import shutil
+from dataclasses import replace
 from functools import wraps
 from pathlib import Path
 from typing import Callable, Mapping
@@ -20,6 +24,7 @@ from flask import (
     render_template,
     request,
     session,
+    send_file,
     url_for,
 )
 
@@ -30,6 +35,7 @@ from .model import (
     REVIEW_COLUMNS,
     SEVERITIES,
     Candidate,
+    file_sha256,
     agreement_json_bytes,
     agreement_summary,
     cropped_evidence,
@@ -84,14 +90,54 @@ def create_app(
     database_path: Path,
     testing: bool = False,
     secret_key: str | None = None,
+    video_manifest_path: Path | None = None,
+    training_inventory_path: Path | None = None,
 ) -> Flask:
     queue_path = Path(queue_path).resolve()
     primary_labels_path = Path(primary_labels_path).resolve()
     sheets_dir = Path(sheets_dir).resolve()
     database_path = Path(database_path).resolve()
     candidates, queue_hash = load_candidates(queue_path, sheets_dir)
+    videos, video_audit = {}, None
+    if (video_manifest_path is None) != (training_inventory_path is None):
+        raise ValueError("Supply both video manifest and training inventory")
+    if video_manifest_path is not None:
+        from .video import load_video_round
+        candidates, videos, video_audit = load_video_round(video_manifest_path, training_inventory_path, candidates)
     primary = load_primary_labels(primary_labels_path, candidates)
-    initialize_database(database_path, queue_hash)
+    package = {
+        'video_round': video_audit,
+        'queue_sha256': queue_hash,
+        'primary_sha256': file_sha256(primary_labels_path),
+        'evidence': {c.sheet_path.name: c.evidence_sha256 for c in candidates},
+        'protocol': 'paired-review-v2; uncertain unresolved; ungradable excluded from binary metrics',
+        'annotation_guide_sha256': file_sha256(Path(__file__).resolve().parents[2] / 'ANNOTATION_GUIDE.md'),
+        'candidate_identity_code_sha256': file_sha256(Path(__file__).resolve().parents[1] / 'kimore_candidate_identity.py'),
+        'application': {str(p.relative_to(Path(__file__).parent)): file_sha256(p)
+                        for p in sorted(Path(__file__).parent.rglob('*'))
+                        if p.is_file() and p.suffix in {'.py', '.html', '.js', '.css'}},
+    }
+    round_id = hashlib.sha256(json.dumps(package, sort_keys=True).encode()).hexdigest()
+    initialize_database(database_path, queue_hash, package)
+    frozen = database_path.parent / (database_path.name + '.round')
+    frozen.mkdir(exist_ok=True)
+    for source, name, expected in [(queue_path, 'queue.csv', queue_hash),
+                                   (primary_labels_path, 'primary.csv', package['primary_sha256']),
+                                   *[(c.sheet_path, c.sheet_path.name, c.evidence_sha256) for c in candidates]]:
+        destination = frozen / name
+        if not destination.exists():
+            shutil.copyfile(source, destination)
+        if file_sha256(destination) != expected:
+            raise RuntimeError('Frozen round package is damaged')
+    (frozen / 'manifest.json').write_text(json.dumps(package, indent=2, sort_keys=True), encoding='utf-8')
+    candidates = [replace(c, sheet_path=frozen / c.sheet_path.name) for c in candidates]
+    for video in videos.values():
+        destination = frozen / (video['sha256'] + video['path'].suffix.lower())
+        if not destination.exists():
+            shutil.copyfile(video['path'], destination)
+        if file_sha256(destination) != video['sha256']:
+            raise RuntimeError('Frozen video is damaged')
+        video['path'] = destination
 
     app = Flask(__name__)
     app.config.update(
@@ -105,6 +151,7 @@ def create_app(
     app.extensions["review_primary"] = primary
     app.extensions["review_queue_hash"] = queue_hash
     app.extensions["review_database_path"] = database_path
+    app.extensions["review_round_id"] = round_id
 
     def csrf_token() -> str:
         token = session.get("csrf_token")
@@ -177,6 +224,7 @@ def create_app(
             "severities": SEVERITIES,
             "confidences": CONFIDENCES,
             "active_reviewer": active_reviewer,
+            "video_mode": bool(videos),
             "nav_sealed": (
                 is_reviewer_sealed(database_path, active_reviewer)
                 if isinstance(active_reviewer, str)
@@ -276,6 +324,8 @@ def create_app(
             abort(404)
         reviewer_id = current_reviewer()
         candidate = order[position - 1]
+        if videos and session.get('reference_seen') != candidate.row['reference_sample_id']:
+            return redirect(url_for('reference_intro', position=position))
         sealed = is_reviewer_sealed(database_path, reviewer_id)
         if request.method == "POST":
             require_csrf()
@@ -300,7 +350,37 @@ def create_app(
             saved=reviews.get(candidate.key),
             progress=progress_data(),
             sealed=sealed,
+            sample_video=videos.get(candidate.row['sample_id']),
+            reference_video=videos.get(candidate.row.get('reference_sample_id')),
         )
+
+    @app.route('/reference/<int:position>', methods=['GET', 'POST'])
+    @reviewer_required
+    def reference_intro(position):
+        order = ordered_candidates()
+        if not videos or not 1 <= position <= len(order):
+            abort(404)
+        candidate = order[position - 1]
+        if request.method == 'POST':
+            require_csrf()
+            if request.form.get('understood') != 'yes':
+                abort(400, 'Potvrdite da ste pogledali referencu i razumeli zadatak.')
+            session['reference_seen'] = candidate.row['reference_sample_id']
+            return redirect(url_for('review_item', position=position))
+        return render_template('reference.html', candidate=candidate, position=position,
+                               video=videos[candidate.row['reference_sample_id']])
+
+    @app.get('/video/<int:position>/<kind>')
+    @reviewer_required
+    def video_evidence(position, kind):
+        order = ordered_candidates()
+        if not videos or not 1 <= position <= len(order) or kind not in {'sample', 'reference'}:
+            abort(404)
+        candidate = order[position - 1]
+        if kind == 'sample' and session.get('reference_seen') != candidate.row['reference_sample_id']:
+            abort(403)
+        sid = candidate.row['sample_id' if kind == 'sample' else 'reference_sample_id']
+        return send_file(videos[sid]['path'], conditional=True)
 
     @app.get("/evidence/<int:position>.jpg")
     @reviewer_required
@@ -355,13 +435,13 @@ def create_app(
         reviewer_id, reviews = sealed_data()
         summary = agreement_summary(candidates, primary, reviews)
         disagreements = disagreement_candidates(reviews)
-        adjudications = load_adjudications(database_path)
+        adjudications = load_adjudications(database_path, current_reviewer())
         return render_template(
             "agreement.html",
             reviewer_id=reviewer_id,
             summary=summary,
             disagreements=disagreements,
-            adjudicated=sum(candidate.key in adjudications for candidate in disagreements),
+            adjudicated=sum(candidate.key in adjudications and adjudications[candidate.key]['execution_label'] != 'uncertain' for candidate in disagreements),
         )
 
     @app.route("/adjudication", methods=["GET", "POST"])
@@ -378,16 +458,16 @@ def create_app(
             except ValueError as error:
                 flash(str(error), "error")
                 return redirect(url_for("adjudication_start"))
-            if adjudicator_id == current_reviewer():
+            if adjudicator_id in {current_reviewer(), *[row.get('annotator', '') for row in primary.values()]}:
                 flash("Adjudicator must use a different ID from the second reviewer.", "error")
                 return redirect(url_for("adjudication_start"))
             session["adjudicator_id"] = adjudicator_id
             return redirect(url_for("adjudication_item", position=1))
-        adjudications = load_adjudications(database_path)
+        adjudications = load_adjudications(database_path, current_reviewer())
         return render_template(
             "adjudication_start.html",
             disagreements=disagreements,
-            adjudicated=sum(candidate.key in adjudications for candidate in disagreements),
+            adjudicated=sum(candidate.key in adjudications and adjudications[candidate.key]['execution_label'] != 'uncertain' for candidate in disagreements),
             adjudicator_id=session.get("adjudicator_id", ""),
         )
 
@@ -407,7 +487,7 @@ def create_app(
             try:
                 result = validate_adjudication(request.form)
                 save_adjudication(
-                    database_path, adjudicator_id, candidate, result
+                    database_path, adjudicator_id, candidate, result, current_reviewer()
                 )
             except ValueError as error:
                 flash(str(error), "error")
@@ -419,7 +499,7 @@ def create_app(
                         url_for("adjudication_item", position=next_position)
                     )
                 return redirect(url_for("agreement"))
-        adjudications = load_adjudications(database_path)
+        adjudications = load_adjudications(database_path, current_reviewer())
         order = ordered_candidates()
         evidence_position = order.index(candidate) + 1
         return render_template(
@@ -441,6 +521,7 @@ def create_app(
         rows: list[dict[str, object]] = []
         for candidate in candidates:
             row: dict[str, object] = dict(candidate.row)
+            row['round_id'] = round_id
             review = reviews[candidate.key]
             for field in REVIEW_COLUMNS:
                 row[field] = reviewer_id if field == "annotator" else review[field]
@@ -451,7 +532,7 @@ def create_app(
     @reviewer_required
     def export_agreement() -> Response:
         _, reviews = sealed_data()
-        body = agreement_json_bytes(agreement_summary(candidates, primary, reviews))
+        body = agreement_json_bytes({**agreement_summary(candidates, primary, reviews), 'round_id': round_id, 'binary_coverage_definition': 'decided_items / items; uncertain and ungradable excluded'})
         return Response(
             body,
             mimetype="application/json",
@@ -464,7 +545,7 @@ def create_app(
     @reviewer_required
     def export_adjudicated() -> Response:
         reviewer_id, reviews = sealed_data()
-        adjudications = load_adjudications(database_path)
+        adjudications = load_adjudications(database_path, current_reviewer())
         rows: list[dict[str, object]] = []
         for candidate in candidates:
             first = primary[candidate.key]
@@ -475,6 +556,7 @@ def create_app(
                 final = dict(second)
                 final["reviewer_id"] = "reviewer_consensus"
             row: dict[str, object] = dict(candidate.row)
+            row['round_id'] = round_id
             for field in REVIEW_COLUMNS:
                 row[f"primary_{field}"] = first.get(field, "")
                 row[f"second_{field}"] = (
@@ -487,7 +569,10 @@ def create_app(
                 else:
                     row[f"final_{field}"] = final.get(field, "")
             row["adjudication_required"] = str(requires).lower()
-            row["adjudication_complete"] = str(final is not None).lower()
+            row['decision_id'] = final.get('decision_id', '') if final else ''
+            row['input_sha256'] = final.get('input_sha256', '') if final else ''
+            row['binary_metric_eligible'] = str(final is not None and final['execution_label'] in {'correct', 'error'}).lower()
+            row["adjudication_complete"] = str(final is not None and final['execution_label'] != 'uncertain').lower()
             rows.append(row)
         return _csv_response(rows, "adjudicated_review.csv")
 

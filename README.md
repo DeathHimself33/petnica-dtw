@@ -1,5 +1,15 @@
 # Petnica interpretable DTW baselines
 
+The comprehensive technical audit and prioritized repair plan are in
+`PROJECT_AUDIT_REPORT.md`; reproducible read-only checks are in `audits/`.
+`PROJECT_AUDIT_WORKLOG.md` records coverage and remaining verification limits.
+
+Post-hoc diagnostics are documented in `ES4_DIAGNOSTIC_REPORT.md` and
+`ES2_ES4_DATA_AUDIT.md`. Run `analyze_es4_diagnostics.py` and
+`audit_es2_es4_data.py` to regenerate their local evidence under `results/`.
+The latter flags unresolved internal workbook-ID inconsistencies; numerical
+agreement with the manifest alone does not establish source-label provenance.
+
 This repository contains a small, interpretable baseline for predicting the
 KIMORE Exercise 3 clinical Total Score from Kinect skeleton recordings. It uses
 subject-disjoint cross-validation, shoulder-axis yaw, exact dynamic time
@@ -140,15 +150,24 @@ those candidates and adds blank human-review fields (`execution_label`,
 `error_type`, `severity`, confidence, annotator, and notes) for a manual pilot.
 The allowed values and review procedure are defined in `ANNOTATION_GUIDE.md`.
 
-Generate the balanced 20-recording visual pilot and apply the versioned
-first-pass labels:
+Generate a new balanced 20-recording visual pilot from an explicit run:
 
 ```powershell
-.\.venv\Scripts\python.exe .\src\kimore_pilot_review.py
-.\.venv\Scripts\python.exe .\src\kimore_apply_pilot_labels.py
+.\.venv\Scripts\python.exe .\src\kimore_pilot_review.py --queue results/interpretable_dtw/Es3/annotation_queue.csv --output results/interpretable_dtw/Es3/pilot_review_v2
 ```
 
 The result and its limitations are documented in `PILOT_LABEL_REPORT.md`.
+The existing `results/interpretable_dtw/pilot_review/` is a frozen historical
+run. Its sparse labels are bound to the audited original intervals in
+`annotations/pilot_identity_binding.json`; do not apply them to a new run.
+New labels must retain the run, candidate and interval fields. For the audit
+fixes, migration rules, and remaining source questions see `AUDIT_FIXES.md`.
+
+The source-checked follow-up dataset is in `results/dataset_v2_verified/`.
+It preserves the historical folds, recovers four verified identical recordings,
+and excludes NE_ID2's five unresolved targets. New training should explicitly
+use its `kimore_all_exercises_128.npz` with a fresh output directory. Coverage
+and exact common-sample comparisons are saved with this dataset version.
 The first pass contains 100 candidates and is explicitly non-clinical; an
 independent reviewer must complete the generated blinded
 `second_review_queue.csv` before any ground-truth claim.
@@ -158,7 +177,7 @@ independent reviewer must complete the generated blinded
 Start the blinded second-review workflow with:
 
 ```powershell
-.\.venv\Scripts\python.exe .\expert_review_app.py
+.\.venv\Scripts\python.exe .\expert_review_app.py --legacy-sheets
 ```
 
 Open `http://127.0.0.1:5050`. The reviewer enters a stable pseudonymous ID,

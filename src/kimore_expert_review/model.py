@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Iterable, Iterator, Mapping
 
 from PIL import Image
+from kimore_candidate_identity import candidate_id, validate_identity
 
 
 EXECUTION_LABELS = ("correct", "error", "uncertain", "ungradable")
@@ -46,6 +47,7 @@ REVIEW_COLUMNS = (
 class Candidate:
     row: dict[str, str]
     sheet_path: Path
+    evidence_sha256: str = ''
 
     @property
     def key(self) -> tuple[str, int]:
@@ -53,7 +55,14 @@ class Candidate:
 
     @property
     def component_label(self) -> str:
-        return self.row["component_name"].replace("_", " ")
+        name = self.row["component_name"]
+        return {
+            "right_upper_arm": "desna nadlaktica", "left_upper_arm": "leva nadlaktica",
+            "right_forearm": "desna podlaktica", "left_forearm": "leva podlaktica",
+            "right_thigh": "desna natkolenica", "left_thigh": "leva natkolenica",
+            "right_shank": "desna potkolenica", "left_shank": "leva potkolenica",
+            "trunk": "trup",
+        }.get(name, name.replace("_", " "))
 
     @property
     def interval_label(self) -> str:
@@ -106,7 +115,7 @@ def load_candidates(queue_path: Path, sheets_dir: Path) -> tuple[list[Candidate]
         sheet_path = sheets_dir / f"{row['sample_id']}.jpg"
         if not sheet_path.is_file():
             raise FileNotFoundError(f"Missing review sheet: {sheet_path}")
-        candidates.append(Candidate(row=row, sheet_path=sheet_path))
+        candidates.append(Candidate(row=row, sheet_path=sheet_path, evidence_sha256=file_sha256(sheet_path)))
     return candidates, file_sha256(queue_path)
 
 
@@ -122,9 +131,13 @@ def load_primary_labels(
     by_key = {
         (row["sample_id"], int(row["candidate_rank"])): row for row in rows
     }
+    if len(by_key) != len(rows):
+        raise ValueError('Primary labels contain duplicate sample/rank keys')
     missing_keys = [candidate.key for candidate in candidates if candidate.key not in by_key]
     if missing_keys:
         raise ValueError(f"Primary labels missing review items: {missing_keys}")
+    for candidate in candidates:
+        validate_identity(candidate.row, by_key[candidate.key])
     return {candidate.key: by_key[candidate.key] for candidate in candidates}
 
 
@@ -182,11 +195,12 @@ def validate_review(form: Mapping[str, str]) -> dict[str, str]:
 
 def validate_adjudication(form: Mapping[str, str]) -> dict[str, str]:
     result = validate_review(form)
-    if result["execution_label"] in {"uncertain", "ungradable"}:
-        raise ValueError("Finalna odluka mora biti ispravno ili greška.")
     if not result["review_notes"]:
         raise ValueError("Adjudikacija zahteva kratko obrazloženje.")
-    result["review_status"] = "reviewed"
+    result["review_status"] = (
+        'adjudication_needed' if result['execution_label'] == 'uncertain'
+        else 'excluded_ungradable' if result['execution_label'] == 'ungradable' else 'reviewed'
+    )
     return result
 
 
@@ -202,7 +216,7 @@ def connect_database(path: Path) -> Iterator[sqlite3.Connection]:
         connection.close()
 
 
-def initialize_database(path: Path, queue_hash: str) -> None:
+def initialize_database(path: Path, queue_hash: str, package: dict | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with connect_database(path) as connection:
         connection.executescript(
@@ -246,8 +260,25 @@ def initialize_database(path: Path, queue_hash: str) -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_reviews_reviewer_status
             ON reviews(reviewer_id, review_status);
+            CREATE TABLE IF NOT EXISTS adjudication_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sample_id TEXT NOT NULL,
+                candidate_rank INTEGER NOT NULL,
+                second_reviewer_id TEXT NOT NULL,
+                input_sha256 TEXT NOT NULL,
+                decision_json TEXT NOT NULL
+            );
             """
         )
+        if package is not None:
+            value = json.dumps(package, sort_keys=True)
+            stored_package = connection.execute("SELECT value FROM metadata WHERE key='round_package'").fetchone()
+            if stored_package is None:
+                if connection.execute('SELECT COUNT(*) FROM reviews').fetchone()[0]:
+                    raise RuntimeError('Legacy review database has no frozen evidence package. Preserve it and create a new round.')
+                connection.execute("INSERT INTO metadata VALUES ('round_package', ?)", (value,))
+            elif stored_package['value'] != value:
+                raise RuntimeError('Round labels, evidence or protocol changed. Use a new database and round.')
         stored = connection.execute(
             "SELECT value FROM metadata WHERE key = 'queue_sha256'"
         ).fetchone()
@@ -359,45 +390,30 @@ def save_adjudication(
     reviewer_id: str,
     candidate: Candidate,
     review: Mapping[str, str],
+    second_reviewer_id: str,
 ) -> None:
+    if reviewer_id == second_reviewer_id:
+        raise ValueError('Adjudicator must differ from the second reviewer')
     with connect_database(path) as connection:
-        connection.execute(
-            """
-            INSERT INTO adjudications(
-                sample_id, candidate_rank, reviewer_id, review_status,
-                execution_label, error_type, severity, reviewer_confidence,
-                review_notes, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(sample_id, candidate_rank) DO UPDATE SET
-                reviewer_id = excluded.reviewer_id,
-                review_status = excluded.review_status,
-                execution_label = excluded.execution_label,
-                error_type = excluded.error_type,
-                severity = excluded.severity,
-                reviewer_confidence = excluded.reviewer_confidence,
-                review_notes = excluded.review_notes,
-                updated_at = excluded.updated_at
-            """,
-            (
-                candidate.key[0],
-                candidate.key[1],
-                reviewer_id,
-                review["review_status"],
-                review["execution_label"],
-                review["error_type"],
-                review["severity"],
-                review["reviewer_confidence"],
-                review["review_notes"],
-                datetime.now(UTC).isoformat(),
-            ),
-        )
+        source = connection.execute('SELECT * FROM reviews WHERE sample_id=? AND candidate_rank=? AND reviewer_id=?',
+                                    (*candidate.key, second_reviewer_id)).fetchone()
+        sealed = connection.execute('SELECT 1 FROM reviewer_state WHERE reviewer_id=?', (second_reviewer_id,)).fetchone()
+        if source is None or sealed is None:
+            raise ValueError('Adjudication requires the identified sealed second review')
+        package = connection.execute("SELECT value FROM metadata WHERE key='round_package'").fetchone()
+        inputs = json.dumps({'second': dict(source), 'package': package['value'] if package else None,
+                             'candidate_id': candidate_id(candidate.row)}, sort_keys=True)
+        decision = {**review, 'reviewer_id': reviewer_id, 'updated_at': datetime.now(UTC).isoformat()}
+        connection.execute('INSERT INTO adjudication_history(sample_id,candidate_rank,second_reviewer_id,input_sha256,decision_json) VALUES(?,?,?,?,?)',
+                           (*candidate.key, second_reviewer_id, hashlib.sha256(inputs.encode()).hexdigest(), json.dumps(decision)))
 
 
-def load_adjudications(path: Path) -> dict[tuple[str, int], dict[str, str]]:
+def load_adjudications(path: Path, second_reviewer_id: str) -> dict[tuple[str, int], dict[str, str]]:
     with connect_database(path) as connection:
-        rows = connection.execute("SELECT * FROM adjudications").fetchall()
+        rows = connection.execute('SELECT * FROM adjudication_history WHERE second_reviewer_id=? ORDER BY id', (second_reviewer_id,)).fetchall()
     return {
-        (row["sample_id"], int(row["candidate_rank"])): dict(row) for row in rows
+        (row["sample_id"], int(row["candidate_rank"])): {**json.loads(row['decision_json']),
+          'input_sha256': row['input_sha256'], 'decision_id': row['id']} for row in rows
     }
 
 
@@ -486,6 +502,8 @@ def _cropped_evidence_cached(path_text: str, rank: int, modified_ns: int) -> byt
 
 
 def cropped_evidence(candidate: Candidate) -> bytes:
+    if candidate.evidence_sha256 and file_sha256(candidate.sheet_path) != candidate.evidence_sha256:
+        raise ValueError('Review evidence changed during this round')
     stat = candidate.sheet_path.stat()
     return _cropped_evidence_cached(
         str(candidate.sheet_path.resolve()), candidate.key[1], stat.st_mtime_ns

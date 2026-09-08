@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Referentni snimak · KIMORE Review{% endblock %}
+{% block content %}
+<section class="evidence-panel">
+  <p class="eyebrow">Prvo pogledajte referencu</p>
+  <h1>Upoznajte se sa referentnim pokretom</h1>
+  <p class="lead">Zadatak nije davanje opšte instruktorske ocene izvođenja vežbe.</p>
+  <p>U sledećem koraku ocenjujete samo <strong>{{ candidate.component_label }}</strong> u označenom intervalu: da li je u toj komponenti vidljiva greška u odnosu na referentni pokret. Ne ocenjujte ukupnu tehniku, kondiciju, dijagnozu ili druge delove tela izvan zadatka.</p>
+  <video controls playsinline preload="metadata" data-bounded-video data-start="{{ video.start }}" data-end="{{ video.end }}"
+         src="{{ url_for('video_evidence', position=position, kind='reference') }}">Pregledač ne podržava video.</video>
+  <p>Pregledajte snimak, zatim potvrdite da razumete kriterijum. Referenca je dostupna i tokom ocenjivanja.</p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label><input type="checkbox" name="understood" value="yes" required> Pogledao/la sam referencu i razumem da ocenjujem samo označenu komponentu i interval.</label>
+    <button class="button button-primary" type="submit">Pređi na primere</button>
+  </form>
+</section>
+{% endblock %}

@@ -6,6 +6,7 @@
       <p class="eyebrow">Stavka {{ position }} od {{ total }}</p>
       <h1>{{ candidate.component_label|title }}</h1>
       <p class="lead compact">Ocenite samo ovu komponentu tokom intervala {{ candidate.interval_label }}.</p>
+      <p><strong>Ovo nije opšta instruktorska ocena.</strong> Procenite vidljivu grešku samo u navedenoj komponenti i intervalu, poređenjem sa referencom. „Ispravno” znači da u tom delu nema vidljive greške; ne predstavlja ocenu cele vežbe.</p>
     </div>
     <div class="progress-block" aria-label="Napredak {{ progress.percent }} procenata">
       <span>{{ progress.reviewed }}/{{ progress.total }}</span>
@@ -13,6 +14,23 @@
     </div>
   </div>
 
+  {% if video_mode %}
+  <section class="evidence-panel" data-video-comparison>
+    <h2>Referenca i primer</h2>
+    <div class="comparison-grid">
+      {% for kind, title, video in [('reference', 'Referentni snimak', reference_video), ('sample', 'Primer za ocenjivanje', sample_video)] %}
+      <div><h3>{{ title }}</h3>
+        <video controls playsinline preload="metadata" data-bounded-video data-start="{{ video.start }}" data-end="{{ video.end }}"
+               src="{{ url_for('video_evidence', position=position, kind=kind) }}">Pregledač ne podržava video.</video>
+      </div>
+      {% endfor %}
+    </div>
+    <label for="movement-progress">Zajednički položaj u pokretu: <output data-movement-output>0%</output></label>
+    <input id="movement-progress" type="range" min="0" max="100" step="0.1" value="0" data-movement-progress>
+    <p>Klizač pauzira oba snimka i postavlja ih na isti procenat pokreta: 0% je označeni početak, 100% označeni kraj. Međufaze nisu nužno poravnate. Video kontrole puštaju svaki snimak zasebno, originalnom brzinom.</p>
+    <p>Interval zadatka {{ candidate.interval_label }} odnosi se na izvorni snimak prikazan u pregledu ispod, a ne na ovu normalizovanu skalu.</p>
+  </section>
+  {% endif %}
   <section class="evidence-panel" aria-labelledby="evidence-heading">
     <div class="section-heading">
       <div>

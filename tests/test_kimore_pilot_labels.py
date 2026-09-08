@@ -42,6 +42,10 @@ class PilotLabelTest(unittest.TestCase):
             }
             for row in labels
         ]
+        import json
+        binding = json.loads((ROOT / 'annotations/pilot_identity_binding.json').read_text())
+        intervals = {(r['sample_id'], r['candidate_rank']): r for r in binding['intervals']}
+        queue = [{**r, **intervals[r['sample_id'], r['candidate_rank']]} for r in queue]
         merged = merge_labels(queue, labels)
         self.assertEqual(len(merged), 100)
         self.assertEqual(

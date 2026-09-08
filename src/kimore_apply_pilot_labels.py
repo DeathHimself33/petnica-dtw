@@ -7,6 +7,7 @@ import csv
 import json
 from collections import Counter, defaultdict
 from pathlib import Path
+from kimore_candidate_identity import validate_identity
 
 
 KEY_FIELDS = ("sample_id", "candidate_rank")
@@ -102,6 +103,7 @@ def merge_labels(
     merged: list[dict[str, str]] = []
     for row in queue_rows:
         label = labels_by_key[row_key(row)]
+        validate_identity(row, label)
         merged.append({**row, **{field: label[field] for field in REVIEW_FIELDS}})
     return merged
 
@@ -248,6 +250,17 @@ def main() -> None:
         handle.write("\n")
 
     blinded = second_review_rows(queue_rows)
+    unresolved = []
+    for row in merged:
+        if row['execution_label'] in {'uncertain', 'ungradable'} or row['review_status'] == 'adjudication_needed':
+            item = dict(row)
+            for field in REVIEW_FIELDS:
+                item[field] = ''
+            item['second_review_selection'] = 'supplemental_unresolved_pilot_case_excluded_from_original_agreement'
+            unresolved.append(item)
+    if unresolved:
+        write_rows(args.output / 'unresolved_pilot_queue.csv',
+                   [*queue_fields, 'second_review_selection'], unresolved)
     write_rows(
         args.output / "second_review_queue.csv",
         [*queue_fields, "second_review_selection"],

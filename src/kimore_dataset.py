@@ -86,6 +86,8 @@ def optional_int(value: str | None) -> int | None:
 
 def explain_position_exclusion(row: dict[str, str]) -> str | None:
     """Return why a row cannot be used by a position-based model."""
+    if 'unresolved clinical Subject ID' in (row.get('issues') or ''):
+        return 'unresolved clinical Subject ID'
     if optional_float(row.get("clinical_ts")) is None:
         return "missing clinical TS target"
     if not (row.get("position_path") or "").strip():

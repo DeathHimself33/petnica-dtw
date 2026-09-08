@@ -832,6 +832,12 @@ def run_interpretable_evaluation(
         )
     )
     review_queue_rows = annotation_queue_rows(deviation_interval_rows)
+    from uuid import uuid4
+    from kimore_candidate_identity import candidate_id
+    review_run_id = str(uuid4())
+    for row in review_queue_rows:
+        row['run_id'] = review_run_id
+        row['candidate_id'] = candidate_id(row)
 
     output_path = output_dir / "component_summaries.csv"
     qc_usable_output_path = output_dir / "component_summaries_qc_usable.csv"
@@ -995,6 +1001,13 @@ def run_interpretable_evaluation(
 
     progress(f"Hashing the exact {exercise} targets and JointPosition inputs...")
     experiment_inputs_sha256 = _experiment_inputs_sha256(samples)
+    from kimore_coverage import coverage_rows
+    coverage_exclusions = dict(excluded)
+    coverage_exclusions.update({sample.sample_id: 'full-body frame QC failure'
+                                for sample, status in zip(samples, sample_quality_statuses, strict=True)
+                                if status == 'fail'})
+    cohort_coverage = coverage_rows(manifest_path, [row['sample_id'] for row in prediction_rows],
+                                   coverage_exclusions, exercises={exercise})
     summary: dict[str, object] = {
         "method": METHOD_NAME,
         "evaluation_variant": "frame_qc_yu_xiong_dtw",
@@ -1008,6 +1021,7 @@ def run_interpretable_evaluation(
             else "exercise_specific_subject_assignment"
         ),
         "excluded_samples": excluded,
+        "coverage_by_exercise_cohort": cohort_coverage,
         "subject_overlap_in_every_fold": 0,
         "component_rows": len(rows),
         "qc_usable_samples": qc_usable_samples,
@@ -1017,6 +1031,7 @@ def run_interpretable_evaluation(
         "error_timeline_rows": timeline_row_count,
         "top_deviation_interval_rows": len(deviation_interval_rows),
         "annotation_queue_rows": len(review_queue_rows),
+        "review_run_id": review_run_id,
         "localization_interpretation": (
             "angular deviations from the training-only reference are candidates "
             "for human review, not validated execution-error labels"

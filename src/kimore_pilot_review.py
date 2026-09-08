@@ -125,15 +125,17 @@ SKELETON_EDGES = (
 def render_skeleton(sequence: JointSequence, frame_index: int) -> np.ndarray:
     canvas = np.full((540, 960, 3), 245, dtype=np.uint8)
     pose = sequence.positions[frame_index]
-    center = pose[JOINT_INDEX["SpineBase"]]
-    body_height = max(
-        float(
-            pose[JOINT_INDEX["Head"], 1]
-            - min(pose[JOINT_INDEX["AnkleLeft"], 1], pose[JOINT_INDEX["AnkleRight"], 1])
-        ),
-        0.5,
-    )
-    scale = 360.0 / body_height
+    joint_indices = [JOINT_INDEX[name] for name in sorted({name for edge in SKELETON_EDGES for name in edge})]
+    # One scale and center for the entire clip: all displayed joints fit in both panels.
+    points = sequence.positions[:, joint_indices, :].reshape(-1, 3)
+    if not np.isfinite(points).all():
+        raise ValueError('Cannot render nonfinite skeleton coordinates')
+    lower, upper = points.min(axis=0), points.max(axis=0)
+    center = (lower + upper) / 2
+    span = np.maximum(upper - lower, 1e-6)
+    # The contact-sheet tile overlays its first 25 pixels with a frame label.
+    # Reserve 120 source pixels above the skeleton so the head survives resizing.
+    scale = min(420.0 / span[0], 420.0 / span[2], 360.0 / span[1])
 
     for title, x_axis, panel_center in (("FRONT x/y", 0, 240), ("SIDE z/y", 2, 720)):
         cv2.putText(canvas, title, (panel_center - 75, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (50, 50, 50), 1, cv2.LINE_AA)
@@ -142,7 +144,7 @@ def render_skeleton(sequence: JointSequence, frame_index: int) -> np.ndarray:
             value = pose[JOINT_INDEX[joint_name]]
             return (
                 int(round(panel_center + (value[x_axis] - center[x_axis]) * scale)),
-                int(round(470 - (value[1] - center[1]) * scale)),
+                int(round(300 - (value[1] - center[1]) * scale)),
             )
 
         for first, second in SKELETON_EDGES:
@@ -253,7 +255,7 @@ def interval_measurements(sequence: JointSequence, start: int, end: int) -> dict
 
 def metric_lines(metrics: dict[str, float], prefix: str) -> list[str]:
     return [
-        f"{prefix} shoulder L/R {metrics['left_shoulder_angle_deg']:.0f}/{metrics['right_shoulder_angle_deg']:.0f} deg",
+        f"{prefix} arm/torso axis L/R {metrics['left_shoulder_angle_deg']:.0f}/{metrics['right_shoulder_angle_deg']:.0f} deg",
         f"{prefix} elbow L/R {metrics['left_elbow_angle_deg']:.0f}/{metrics['right_elbow_angle_deg']:.0f} deg",
         f"{prefix} wrist-h L/R {metrics['left_wrist_height_torso']:+.2f}/{metrics['right_wrist_height_torso']:+.2f}",
         f"{prefix} knee L/R {metrics['left_knee_angle_deg']:.0f}/{metrics['right_knee_angle_deg']:.0f}; tilt {metrics['torso_tilt_deg']:.1f}",
@@ -423,9 +425,11 @@ def build_sheet(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=Path("kimore_audit_output/kimore_manifest.csv"))
-    parser.add_argument("--queue", type=Path, default=Path("results/interpretable_dtw/annotation_queue.csv"))
-    parser.add_argument("--output", type=Path, default=Path("results/interpretable_dtw/pilot_review"))
+    parser.add_argument("--queue", type=Path, required=True, help="Explicit annotation queue from the intended experiment run")
+    parser.add_argument("--output", type=Path, required=True, help="New output directory for this review packet")
     args = parser.parse_args()
+    if args.output.exists() and any(args.output.iterdir()):
+        raise ValueError('Review output must be a new or empty directory; preserve historical evidence')
 
     samples, _ = read_manifest(args.manifest, exercise="Es3")
     sample_by_id = {sample.sample_id: sample for sample in samples}

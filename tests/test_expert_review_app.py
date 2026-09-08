@@ -87,6 +87,7 @@ class ExpertReviewAppTests(unittest.TestCase):
             queue_rows.append(row)
             primary_rows.append(
                 {
+                    **row,
                     "sample_id": sample_id,
                     "candidate_rank": str(index),
                     "review_status": "reviewed",

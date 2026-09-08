@@ -52,6 +52,34 @@ def assert_no_subject_leakage(
         )
 
 
+def load_subject_fold_assignments(path, n_splits: int = 5) -> dict[str, int]:
+    """Read immutable one-based JSON/NPZ assignments, including QC-excluded subjects."""
+    import json
+    from pathlib import Path
+    path = Path(path)
+    if path.suffix.lower() == '.json':
+        payload = json.loads(path.read_text(encoding='utf-8'))
+        if payload.get('fold_numbering') != 'one_based':
+            raise ValueError('Fold reference must declare one_based numbering')
+        pairs = [(subject, entry['fold']) for entry in payload['folds'] for subject in entry['subjects']]
+        if len({str(subject) for subject, _ in pairs}) != len(pairs):
+            raise ValueError('JSON fold reference repeats subjects')
+    else:
+        with np.load(path, allow_pickle=False) as reference:
+            pairs = list(zip(reference['subject_ids'].tolist(), reference['fold_numbers'].tolist(), strict=True))
+    assignments = {}
+    for subject, fold in pairs:
+        if isinstance(fold, bool) or not isinstance(fold, int) or not 1 <= fold <= n_splits:
+            raise ValueError(f'Fold numbers must be integers from 1 to {n_splits}')
+        subject = str(subject)
+        if subject in assignments and assignments[subject] != fold - 1:
+            raise ValueError('Subject assigned to multiple folds')
+        assignments[subject] = fold - 1
+    if set(assignments.values()) != set(range(n_splits)):
+        raise ValueError(f'Fold reference must contain {n_splits} nonempty folds')
+    return assignments
+
+
 def make_subject_fold_assignments(
     samples: Sequence[KimoreSample],
     n_splits: int = 5,

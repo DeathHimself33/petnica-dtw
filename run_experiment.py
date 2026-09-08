@@ -64,6 +64,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "(default: ./figures/<method>/<exercise>)"
         ),
     )
+    parser.add_argument('--folds-from', type=Path, help='Reuse subject_folds.json or NPZ assignments')
     args = parser.parse_args(argv)
     if args.exercise == ALL_EXERCISES and args.method != "interpretable_dtw":
         parser.error("--exercise all requires interpretable_dtw")
@@ -179,6 +180,8 @@ def _batch_summary_entry(
     }
     if "qc_coverage_fraction" in summary:
         entry["qc_coverage_fraction"] = summary["qc_coverage_fraction"]
+    if 'coverage_by_exercise_cohort' in summary:
+        entry['coverage_by_exercise_cohort'] = summary['coverage_by_exercise_cohort']
     return entry
 
 
@@ -199,6 +202,11 @@ def main(argv: list[str] | None = None) -> int:
         args.exercise,
     )
     shared_assignments = _shared_fold_assignments(manifest_path) if batch else None
+    if args.folds_from is not None:
+        if args.method != 'interpretable_dtw':
+            raise ValueError('--folds-from currently requires interpretable_dtw')
+        from kimore_grouping import load_subject_fold_assignments
+        shared_assignments = load_subject_fold_assignments(args.folds_from)
     summaries: dict[str, dict[str, object]] = {}
 
     if shared_assignments is not None:

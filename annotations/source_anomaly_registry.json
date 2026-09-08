@@ -1,0 +1,390 @@
+{
+  "duplicate_positions": [
+    {
+      "companions": [
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID14\\Es4\\Raw\\JointOrientation021214_122114(1).csv",
+          "rows": 512,
+          "sha256": "e12806969c598f44aa46e5ccc522de11a22ec1374faa3474ea008eba867872f4"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID14\\Es4\\Raw\\JointOrientation021214_122114.csv",
+          "rows": 512,
+          "sha256": "e12806969c598f44aa46e5ccc522de11a22ec1374faa3474ea008eba867872f4"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID14\\Es4\\Raw\\JointPosition021214_122114(1).csv",
+          "rows": 512,
+          "sha256": "0c922b455bf8a5793490ab4abc0c8393e58fcf0f002de12518547c1c82328b14"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID14\\Es4\\Raw\\JointPosition021214_122114.csv",
+          "rows": 512,
+          "sha256": "0c922b455bf8a5793490ab4abc0c8393e58fcf0f002de12518547c1c82328b14"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID14\\Es4\\Raw\\TimeStamp021214_122114(1).csv",
+          "rows": 512,
+          "sha256": "7f1fc59f9709107952654e28f0e0b8fee9bebe9068716a0b534d33b5dd388998"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID14\\Es4\\Raw\\TimeStamp021214_122114.csv",
+          "rows": 512,
+          "sha256": "7f1fc59f9709107952654e28f0e0b8fee9bebe9068716a0b534d33b5dd388998"
+        }
+      ],
+      "copies": [
+        "data\\raw\\KIMORE\\CG\\Expert\\E_ID14\\Es4\\Raw\\JointPosition021214_122114(1).csv",
+        "data\\raw\\KIMORE\\CG\\Expert\\E_ID14\\Es4\\Raw\\JointPosition021214_122114.csv"
+      ],
+      "decision": "pending timestamp/orientation/RGB alignment and QC; not admitted to evaluation",
+      "position_sha256": "0c922b455bf8a5793490ab4abc0c8393e58fcf0f002de12518547c1c82328b14",
+      "proposed_canonical": "data\\raw\\KIMORE\\CG\\Expert\\E_ID14\\Es4\\Raw\\JointPosition021214_122114.csv",
+      "rgb": [
+        {
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID14\\Es4\\rgb\\Blur_rgb021214_122114.mp4",
+          "sha256": "0ecf4d1164254a722ce786a3079adf3b51f0a27a72193c1b3f654b22342875c3"
+        }
+      ]
+    },
+    {
+      "companions": [
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID15\\Es4\\Raw\\JointOrientation300516_121146(1).csv",
+          "rows": 637,
+          "sha256": "9e5b81ce9a5b241d336742ef8719d900bc7ac1d5b0974b219ef79c761c60f987"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID15\\Es4\\Raw\\JointOrientation300516_121146.csv",
+          "rows": 637,
+          "sha256": "9e5b81ce9a5b241d336742ef8719d900bc7ac1d5b0974b219ef79c761c60f987"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID15\\Es4\\Raw\\JointPosition300516_121146(1).csv",
+          "rows": 637,
+          "sha256": "733d9fb33ba47757a8aaa8cce6a71accb020f3b6ed68dc84441b0d68b0904a24"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID15\\Es4\\Raw\\JointPosition300516_121146.csv",
+          "rows": 637,
+          "sha256": "733d9fb33ba47757a8aaa8cce6a71accb020f3b6ed68dc84441b0d68b0904a24"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID15\\Es4\\Raw\\TimeStamp300516_121146(1).csv",
+          "rows": 637,
+          "sha256": "2ad8a306cbb04e0cc6dd52bc00f3753af47ea88216dc0080f41191689ed17964"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID15\\Es4\\Raw\\TimeStamp300516_121146.csv",
+          "rows": 637,
+          "sha256": "2ad8a306cbb04e0cc6dd52bc00f3753af47ea88216dc0080f41191689ed17964"
+        }
+      ],
+      "copies": [
+        "data\\raw\\KIMORE\\CG\\Expert\\E_ID15\\Es4\\Raw\\JointPosition300516_121146(1).csv",
+        "data\\raw\\KIMORE\\CG\\Expert\\E_ID15\\Es4\\Raw\\JointPosition300516_121146.csv"
+      ],
+      "decision": "pending timestamp/orientation/RGB alignment and QC; not admitted to evaluation",
+      "position_sha256": "733d9fb33ba47757a8aaa8cce6a71accb020f3b6ed68dc84441b0d68b0904a24",
+      "proposed_canonical": "data\\raw\\KIMORE\\CG\\Expert\\E_ID15\\Es4\\Raw\\JointPosition300516_121146.csv",
+      "rgb": [
+        {
+          "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID15\\Es4\\rgb\\Blur_rgb300516_121146.mp4",
+          "sha256": "52d5aceaec539b560bf2e05e238b68e81b9fb09328ad5ecfe39c32fac4f0d265"
+        }
+      ]
+    },
+    {
+      "companions": [
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID24\\Es5\\Raw\\JointOrientation050216_152740(1).csv",
+          "rows": 608,
+          "sha256": "8479a131e177b9118f6b81e80b499d6945a333e4bb4dbcf988097ac828e46c41"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID24\\Es5\\Raw\\JointOrientation050216_152740.csv",
+          "rows": 608,
+          "sha256": "8479a131e177b9118f6b81e80b499d6945a333e4bb4dbcf988097ac828e46c41"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID24\\Es5\\Raw\\JointPosition050216_152740(1).csv",
+          "rows": 608,
+          "sha256": "2da61cd0caba72bbd035599fb4620fa920d2d905872930f32a51c2952ca505f6"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID24\\Es5\\Raw\\JointPosition050216_152740.csv",
+          "rows": 608,
+          "sha256": "2da61cd0caba72bbd035599fb4620fa920d2d905872930f32a51c2952ca505f6"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID24\\Es5\\Raw\\TimeStamp050216_152740(1).csv",
+          "rows": 608,
+          "sha256": "c4e2ff26c2f210a7a6c2304a9d91ad51e38d285fe8b13f0c2a5ab4ace346424a"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID24\\Es5\\Raw\\TimeStamp050216_152740.csv",
+          "rows": 608,
+          "sha256": "c4e2ff26c2f210a7a6c2304a9d91ad51e38d285fe8b13f0c2a5ab4ace346424a"
+        }
+      ],
+      "copies": [
+        "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID24\\Es5\\Raw\\JointPosition050216_152740(1).csv",
+        "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID24\\Es5\\Raw\\JointPosition050216_152740.csv"
+      ],
+      "decision": "pending timestamp/orientation/RGB alignment and QC; not admitted to evaluation",
+      "position_sha256": "2da61cd0caba72bbd035599fb4620fa920d2d905872930f32a51c2952ca505f6",
+      "proposed_canonical": "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID24\\Es5\\Raw\\JointPosition050216_152740.csv",
+      "rgb": [
+        {
+          "path": "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID24\\Es5\\rgb\\Blur_rgb050216_152740.mp4",
+          "sha256": "1b6ecfeff6e6e71eec0e7d70f4d2433b214559e52410d82978805d379ac44c8d"
+        }
+      ]
+    },
+    {
+      "companions": [
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\GPP\\Parkinson\\P_ID3\\Es5\\Raw\\JointOrientation060616_120706(1).csv",
+          "rows": 802,
+          "sha256": "21ec8a6bed120fe971c425c57a55d9f199a6583eb4854eed3e69df86a39bbe56"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\GPP\\Parkinson\\P_ID3\\Es5\\Raw\\JointOrientation060616_120706.csv",
+          "rows": 802,
+          "sha256": "21ec8a6bed120fe971c425c57a55d9f199a6583eb4854eed3e69df86a39bbe56"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\GPP\\Parkinson\\P_ID3\\Es5\\Raw\\JointPosition060616_120706(1).csv",
+          "rows": 802,
+          "sha256": "64dca1aee1d711384acbf0641a15bcd5b399266c86d91467ce306d27dc6864eb"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\GPP\\Parkinson\\P_ID3\\Es5\\Raw\\JointPosition060616_120706.csv",
+          "rows": 802,
+          "sha256": "64dca1aee1d711384acbf0641a15bcd5b399266c86d91467ce306d27dc6864eb"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\GPP\\Parkinson\\P_ID3\\Es5\\Raw\\TimeStamp060616_120706(1).csv",
+          "rows": 802,
+          "sha256": "928f8ef9cfa678c38f36ff86c8f09ff02700935e84f3b4fc2486fbff06ac82a3"
+        },
+        {
+          "inconsistent_rows": 0,
+          "nonnumeric_rows": 0,
+          "path": "data\\raw\\KIMORE\\GPP\\Parkinson\\P_ID3\\Es5\\Raw\\TimeStamp060616_120706.csv",
+          "rows": 802,
+          "sha256": "928f8ef9cfa678c38f36ff86c8f09ff02700935e84f3b4fc2486fbff06ac82a3"
+        }
+      ],
+      "copies": [
+        "data\\raw\\KIMORE\\GPP\\Parkinson\\P_ID3\\Es5\\Raw\\JointPosition060616_120706(1).csv",
+        "data\\raw\\KIMORE\\GPP\\Parkinson\\P_ID3\\Es5\\Raw\\JointPosition060616_120706.csv"
+      ],
+      "decision": "pending timestamp/orientation/RGB alignment and QC; not admitted to evaluation",
+      "position_sha256": "64dca1aee1d711384acbf0641a15bcd5b399266c86d91467ce306d27dc6864eb",
+      "proposed_canonical": "data\\raw\\KIMORE\\GPP\\Parkinson\\P_ID3\\Es5\\Raw\\JointPosition060616_120706.csv",
+      "rgb": []
+    }
+  ],
+  "version": 1,
+  "workbooks": [
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID16\\Es2\\Label\\ClinicalAssessment_E_ID16.xlsx",
+      "sha256": "a54176a0affa6d2c8754e3857c31d077735fc44540e972ace1dac984d83dc8c4",
+      "warnings": [
+        "clinical internal Subject ID 'E_ID17' differs from E_ID16: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID16\\Es2\\Label\\ClinicalAssessment_E_ID16.xlsx; source confirmation required"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es1\\Label\\ClinicalAssessment_E_ID3.xlsx",
+      "sha256": "0cbc9a12ce109f71e68f3d357cc1488d7097d15361caf716a3f0962f0c7f45fe",
+      "warnings": [
+        "Es5 TS differs from PO+CF by 0.666667: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es1\\Label\\ClinicalAssessment_E_ID3.xlsx; preserve source TS pending confirmation"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es2\\Label\\ClinicalAssessment_E_ID3.xlsx",
+      "sha256": "0cbc9a12ce109f71e68f3d357cc1488d7097d15361caf716a3f0962f0c7f45fe",
+      "warnings": [
+        "Es5 TS differs from PO+CF by 0.666667: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es2\\Label\\ClinicalAssessment_E_ID3.xlsx; preserve source TS pending confirmation"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es3\\Label\\ClinicalAssessment_E_ID1.xlsx",
+      "sha256": "4e9e3b39bb26dddf486c56dc9e1818c7ef8b2701d9c2ded0e34c1f81e3fff998",
+      "warnings": [
+        "clinical internal Subject ID 'E_ID1' differs from E_ID3: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es3\\Label\\ClinicalAssessment_E_ID1.xlsx; source confirmation required"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es3\\Label\\ClinicalAssessment_E_ID3.xlsx",
+      "sha256": "0cbc9a12ce109f71e68f3d357cc1488d7097d15361caf716a3f0962f0c7f45fe",
+      "warnings": [
+        "Es5 TS differs from PO+CF by 0.666667: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es3\\Label\\ClinicalAssessment_E_ID3.xlsx; preserve source TS pending confirmation"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es4\\Label\\ClinicalAssessment_E_ID1.xlsx",
+      "sha256": "4e9e3b39bb26dddf486c56dc9e1818c7ef8b2701d9c2ded0e34c1f81e3fff998",
+      "warnings": [
+        "clinical internal Subject ID 'E_ID1' differs from E_ID3: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es4\\Label\\ClinicalAssessment_E_ID1.xlsx; source confirmation required"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es4\\Label\\ClinicalAssessment_E_ID3.xlsx",
+      "sha256": "0cbc9a12ce109f71e68f3d357cc1488d7097d15361caf716a3f0962f0c7f45fe",
+      "warnings": [
+        "Es5 TS differs from PO+CF by 0.666667: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es4\\Label\\ClinicalAssessment_E_ID3.xlsx; preserve source TS pending confirmation"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es5\\Label\\ClinicalAssessment_E_ID1.xlsx",
+      "sha256": "4e9e3b39bb26dddf486c56dc9e1818c7ef8b2701d9c2ded0e34c1f81e3fff998",
+      "warnings": [
+        "clinical internal Subject ID 'E_ID1' differs from E_ID3: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es5\\Label\\ClinicalAssessment_E_ID1.xlsx; source confirmation required"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es5\\Label\\ClinicalAssessment_E_ID3.xlsx",
+      "sha256": "0cbc9a12ce109f71e68f3d357cc1488d7097d15361caf716a3f0962f0c7f45fe",
+      "warnings": [
+        "Es5 TS differs from PO+CF by 0.666667: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID3\\Es5\\Label\\ClinicalAssessment_E_ID3.xlsx; preserve source TS pending confirmation"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID4\\Es1\\Label\\ClinicalAssessment_E_ID4.xlsx",
+      "sha256": "5d2c4f007b06f06a5ba73aed89b64ca9fa4019823ed092e64eb93a1cfd68df04",
+      "warnings": [
+        "Es5 TS differs from PO+CF by 0.666667: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID4\\Es1\\Label\\ClinicalAssessment_E_ID4.xlsx; preserve source TS pending confirmation"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID4\\Es2\\Label\\ClinicalAssessment_E_ID4.xlsx",
+      "sha256": "5d2c4f007b06f06a5ba73aed89b64ca9fa4019823ed092e64eb93a1cfd68df04",
+      "warnings": [
+        "Es5 TS differs from PO+CF by 0.666667: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID4\\Es2\\Label\\ClinicalAssessment_E_ID4.xlsx; preserve source TS pending confirmation"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID4\\Es3\\Label\\ClinicalAssessment_E_ID4.xlsx",
+      "sha256": "5d2c4f007b06f06a5ba73aed89b64ca9fa4019823ed092e64eb93a1cfd68df04",
+      "warnings": [
+        "Es5 TS differs from PO+CF by 0.666667: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID4\\Es3\\Label\\ClinicalAssessment_E_ID4.xlsx; preserve source TS pending confirmation"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID4\\Es4\\Label\\ClinicalAssessment_E_ID4.xlsx",
+      "sha256": "5d2c4f007b06f06a5ba73aed89b64ca9fa4019823ed092e64eb93a1cfd68df04",
+      "warnings": [
+        "Es5 TS differs from PO+CF by 0.666667: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID4\\Es4\\Label\\ClinicalAssessment_E_ID4.xlsx; preserve source TS pending confirmation"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\Expert\\E_ID4\\Es5\\Label\\ClinicalAssessment_E_ID4.xlsx",
+      "sha256": "5d2c4f007b06f06a5ba73aed89b64ca9fa4019823ed092e64eb93a1cfd68df04",
+      "warnings": [
+        "Es5 TS differs from PO+CF by 0.666667: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\Expert\\E_ID4\\Es5\\Label\\ClinicalAssessment_E_ID4.xlsx; preserve source TS pending confirmation"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID2\\Es1\\Label\\ClinicalAssessment_NE_ID2.xlsx",
+      "sha256": "63c8e218b267bc8e504d1945baaac1209cb878989afe71c8a6c1c414dad325de",
+      "warnings": [
+        "clinical internal Subject ID 'E_ID1' differs from NE_ID2: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID2\\Es1\\Label\\ClinicalAssessment_NE_ID2.xlsx; source confirmation required"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID2\\Es2\\Label\\ClinicalAssessment_NE_ID2.xlsx",
+      "sha256": "63c8e218b267bc8e504d1945baaac1209cb878989afe71c8a6c1c414dad325de",
+      "warnings": [
+        "clinical internal Subject ID 'E_ID1' differs from NE_ID2: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID2\\Es2\\Label\\ClinicalAssessment_NE_ID2.xlsx; source confirmation required"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID2\\Es3\\Label\\ClinicalAssessment_NE_ID2.xlsx",
+      "sha256": "63c8e218b267bc8e504d1945baaac1209cb878989afe71c8a6c1c414dad325de",
+      "warnings": [
+        "clinical internal Subject ID 'E_ID1' differs from NE_ID2: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID2\\Es3\\Label\\ClinicalAssessment_NE_ID2.xlsx; source confirmation required"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID2\\Es4\\Label\\ClinicalAssessment_NE_ID2.xlsx",
+      "sha256": "63c8e218b267bc8e504d1945baaac1209cb878989afe71c8a6c1c414dad325de",
+      "warnings": [
+        "clinical internal Subject ID 'E_ID1' differs from NE_ID2: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID2\\Es4\\Label\\ClinicalAssessment_NE_ID2.xlsx; source confirmation required"
+      ]
+    },
+    {
+      "decision": "unresolved; preserve source labels",
+      "path": "data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID2\\Es5\\Label\\ClinicalAssessment_NE_ID2.xlsx",
+      "sha256": "63c8e218b267bc8e504d1945baaac1209cb878989afe71c8a6c1c414dad325de",
+      "warnings": [
+        "clinical internal Subject ID 'E_ID1' differs from NE_ID2: D:\\Main Folder\\IT\\Petnica\\Rac2 - Letnji\\petnica-dtw\\petnica-dtw\\data\\raw\\KIMORE\\CG\\NotExpert\\NE_ID2\\Es5\\Label\\ClinicalAssessment_NE_ID2.xlsx; source confirmation required"
+      ]
+    }
+  ]
+}

@@ -224,7 +224,10 @@ def _read_scores_from_workbook(
             )
             continue
         try:
-            scores[(kind, exercise)] = float(value)
+            numeric = float(value)
+            if not np.isfinite(numeric):
+                raise ValueError('Nonfinite clinical score')
+            scores[(kind, exercise)] = numeric
         except (TypeError, ValueError):
             issues_by_exercise[exercise].append(
                 f"nonnumeric {kind.upper()} score for Es{exercise}: {value!r}"
@@ -234,6 +237,41 @@ def _read_scores_from_workbook(
         if ("ts", exercise) not in scores:
             issues_by_exercise[exercise].append(f"TS score not found for Es{exercise}")
     return scores, issues_by_exercise
+
+
+def workbook_provenance_warnings(workbook_path: Path, subject_id: str) -> list[str]:
+    """Report source anomalies without guessing a replacement identity or target."""
+    workbook = load_workbook(workbook_path, data_only=True, read_only=True)
+    try:
+        rows = list(workbook.active.iter_rows(values_only=True))
+    finally:
+        workbook.close()
+    if len(rows) < 2:
+        return []
+    values = {str(key).strip().lower(): value for key, value in zip(rows[0], rows[1]) if key is not None}
+    internal = str(values.get('subject id', '')).strip()
+    warnings = []
+    if internal != subject_id:
+        warnings.append(f'clinical internal Subject ID {internal!r} differs from {subject_id}: {workbook_path}; source confirmation required')
+    scores, _ = _read_scores_from_workbook(workbook_path)
+    for exercise in range(1, 6):
+        if all((kind, exercise) in scores for kind in ('ts', 'po', 'cf')):
+            delta = scores['ts', exercise] - scores['po', exercise] - scores['cf', exercise]
+            if abs(delta) > 1e-4:
+                warnings.append(f'Es{exercise} TS differs from PO+CF by {delta:g}: {workbook_path}; preserve source TS pending confirmation')
+    return warnings
+
+
+def workbook_subject_id(path: Path) -> str:
+    workbook = load_workbook(path, data_only=True, read_only=True)
+    try:
+        rows = list(workbook.active.iter_rows(values_only=True))
+    finally:
+        workbook.close()
+    if len(rows) < 2:
+        return ''
+    values = {str(key).strip().casefold(): value for key, value in zip(rows[0], rows[1]) if key is not None}
+    return str(values.get('subject id', '')).strip()
 
 
 def read_subject_scores(
@@ -273,6 +311,14 @@ def read_subject_scores(
         issue = f"missing correctly named {expected_filename} workbook"
         return {}, {exercise: [issue] for exercise in range(1, 6)}, warnings_found
 
+    for path in expected_workbooks:
+        warnings_found.extend(workbook_provenance_warnings(path, subject_dir.name))
+    consistent_workbooks = [path for path in expected_workbooks
+                            if workbook_subject_id(path).casefold() == subject_dir.name.casefold()]
+    if not consistent_workbooks:
+        issue = 'unresolved clinical Subject ID: no identity-consistent workbook; target excluded'
+        return {}, {exercise: [issue] for exercise in range(1, 6)}, warnings_found
+    expected_workbooks = consistent_workbooks
     parsed = [_read_scores_from_workbook(path) for path in expected_workbooks]
     canonical_scores, canonical_issues = parsed[0]
     if any(scores != canonical_scores for scores, _ in parsed[1:]):
@@ -302,6 +348,7 @@ def audit_exercise(
     scores: dict[tuple[str, int], float],
     exercise_score_issues: Iterable[str],
     subject_warnings: Iterable[str],
+    source_selection: dict | None = None,
 ) -> dict[str, object]:
     exercise_name = f"Es{exercise_number}"
     exercise_dir = subject_dir / exercise_name
@@ -311,9 +358,19 @@ def audit_exercise(
     if not exercise_dir.exists():
         issues.append(f"missing {exercise_name} folder")
 
-    position_path = find_exactly_one(raw_dir, "JointPosition*.csv", issues)
-    orientation_path = find_exactly_one(raw_dir, "JointOrientation*.csv", issues)
-    timestamp_path = find_exactly_one(raw_dir, "TimeStamp*.csv", issues)
+    if source_selection is not None:
+        from kimore_source_selection import select_identical_bundle
+        verified = select_identical_bundle(raw_dir)
+        if verified != source_selection:
+            raise ValueError(f'{subject_id}_{exercise_name}: source selection registry changed or stale')
+        position_path = Path(verified['selected']['JointPosition'])
+        orientation_path = Path(verified['selected']['JointOrientation'])
+        timestamp_path = Path(verified['selected']['TimeStamp'])
+        subject_warnings = [*subject_warnings, 'canonical byte-identical recording bundle selected using verified registry']
+    else:
+        position_path = find_exactly_one(raw_dir, "JointPosition*.csv", issues)
+        orientation_path = find_exactly_one(raw_dir, "JointOrientation*.csv", issues)
+        timestamp_path = find_exactly_one(raw_dir, "TimeStamp*.csv", issues)
 
     audits: dict[str, CsvAudit | None] = {
         "position": audit_numeric_csv(position_path) if position_path else None,
@@ -383,7 +440,7 @@ def audit_exercise(
     }
 
 
-def build_manifest(root: Path) -> list[dict[str, object]]:
+def build_manifest(root: Path, source_selections: dict | None = None) -> list[dict[str, object]]:
     subject_dirs = find_subject_directories(root)
     if not subject_dirs:
         raise RuntimeError(
@@ -410,6 +467,7 @@ def build_manifest(root: Path) -> list[dict[str, object]]:
                     scores,
                     score_issues_by_exercise[exercise_number],
                     subject_warnings,
+                    (source_selections or {}).get(f'{subject_id}_Es{exercise_number}'),
                 )
             )
     return rows

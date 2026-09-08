@@ -1,6 +1,6 @@
 # Manual review of DTW deviation candidates
 
-Use `results/interpretable_dtw/annotation_queue.csv` as the review queue. Each
+Use the explicit run's queue, e.g. `results/interpretable_dtw/Es3/annotation_queue.csv`. Each
 row is one automatically selected 5%-of-recording interval and body component.
 The automatic fields describe a deviation from the training-only reference;
 they are not ground-truth execution-error labels.
@@ -50,6 +50,13 @@ ground truth until the independent review and adjudication gate in the report
 has been completed.
 
 ## Blinded web workflow
+
+For RGB holdout validation, follow `EXPERT_VIDEO_PROTOCOL.md`: show the reference
+before examples, assess only the named component and interval (not overall
+instructor quality), exclude missing RGB, and check the evaluated model's complete
+training inventory for sample and subject overlap. Choose the number of distinct
+recordings and independent ratings separately. The image-only historical pilot
+is available explicitly with `--legacy-sheets`.
 
 Run `expert_review_app.py` for the independent second pass. The application
 uses `second_review_queue.csv`, hides clinical score and automatic deviation

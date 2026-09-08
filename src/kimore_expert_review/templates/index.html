@@ -5,6 +5,7 @@
     <div class="start-panel">
       <p class="eyebrow">Nezavisna ekspertna procena</p>
       <h1>Zaslepljeni pregled pokreta</h1>
+      <p>Ovo je lokalni pilot: reviewer ID nije autentifikacija. Organizator dodeljuje šifre, kontroliše pristup računaru i obezbeđuje nezavisnost recenzenata. Ne delite aplikaciju javno.</p>
       <p class="lead">
         Ocenjujete jednu komponentu i vremenski interval po snimku. Klinički skor,
         DTW odstupanje, rang kandidata i preliminarna oznaka ostaju sakriveni.
@@ -42,6 +43,8 @@
       <div class="protocol-count">{{ queue_items }}</div>
       <h2 id="protocol-heading">stavki u slepom pregledu</h2>
       <ol class="protocol-list">
+        {% if video_mode %}<li>Prvo pogledajte referentni video i potvrdite da razumete zadatak.</li>{% endif %}
+        <li>Ne dajete opštu instruktorsku ocenu: ocenjujete vidljivu grešku samo u traženom delu pokreta.</li>
         <li>Ocenite samo naznačenu komponentu u datom intervalu.</li>
         <li>Ne zaključujte iz samog DTW izbora kandidata.</li>
         <li>Za nesiguran ili neocenjiv primer obavezno dodajte razlog.</li>

@@ -20,6 +20,7 @@ from kimore_evaluation import (  # noqa: E402
     bootstrap_paired_metric_improvements,
     regression_metrics,
 )
+from kimore_run_provenance import digest, verify_fold, validate_population
 
 
 IDENTITY_FIELDS = (
@@ -116,11 +117,22 @@ def load_run(run_dir: Path) -> tuple[int, dict[str, object], list[dict[str, str]
             f"Run needs summary.json and oof_predictions.csv: {resolved}"
         )
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    manifest = json.loads((resolved / 'run_manifest.json').read_text(encoding='utf-8'))
+    run_id = digest(manifest)
+    if summary.get('run_id') != run_id or summary['configuration'] != manifest['configuration']:
+        raise ValueError('Summary does not match immutable run provenance')
+    if summary.get('oof_sha256') != sha256(predictions_path):
+        raise ValueError('OOF predictions changed after completion')
     completed = summary.get("completed_folds")
     if completed != [1, 2, 3, 4, 5]:
         raise ValueError(f"Run is not a complete five-fold result: {resolved}")
     seed = int(summary["configuration"]["seed"])
     rows = read_csv(predictions_path)
+    validate_population(rows, manifest['population'])
+    fold_rows = [row for fold in range(1, 6) for row in verify_fold(resolved / f'fold_{fold}', run_id)]
+    if rows != fold_rows:
+        raise ValueError('OOF predictions differ from verified fold artifacts')
+    summary['provenance'] = manifest
     if len(rows) != int(summary["oof_samples"]):
         raise ValueError(f"OOF row count disagrees with summary: {resolved}")
     sample_ids = [row["sample_id"] for row in rows]
@@ -336,6 +348,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise ValueError("Score minimum must be smaller than score maximum")
 
     loaded = [load_run(path) for path in args.run_dir]
+    def comparison_manifest(summary):
+        manifest = json.loads(json.dumps(summary['provenance']))
+        manifest['configuration'].pop('seed')
+        return manifest
+    if any(comparison_manifest(summary) != comparison_manifest(loaded[0][1])
+           for _, summary, _ in loaded[1:]):
+        raise ValueError('Run provenance or configuration differs beyond random seed')
     seeds = [seed for seed, _, _ in loaded]
     if len(seeds) != len(set(seeds)):
         raise ValueError("Every run must use a distinct random seed")

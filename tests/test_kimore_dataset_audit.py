@@ -18,8 +18,8 @@ def write_score_workbook(path: Path, ts_values: list[float | None]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     workbook = Workbook()
     sheet = workbook.active
-    sheet.append([f"Clinical TS Ex #{number}" for number in range(1, 6)])
-    sheet.append(ts_values)
+    sheet.append(['Subject ID', *[f"Clinical TS Ex #{number}" for number in range(1, 6)]])
+    sheet.append([path.stem.removeprefix('ClinicalAssessment_').split('(')[0], *ts_values])
     workbook.save(str(path))
     workbook.close()
 

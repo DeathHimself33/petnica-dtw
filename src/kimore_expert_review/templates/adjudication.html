@@ -34,7 +34,7 @@
     <fieldset>
       <legend>Finalna oznaka</legend>
       <div class="choice-grid choice-grid-two">
-        {% for value in ['correct', 'error'] %}
+        {% for value in execution_labels %}
           <label class="choice-card">
             <input type="radio" name="execution_label" value="{{ value }}"
                    {% if saved and saved.execution_label == value %}checked{% endif %} required>

@@ -10,6 +10,7 @@ import math
 import random
 import sys
 import time
+import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Sequence
@@ -38,6 +39,7 @@ from kimore_ml_data import (  # noqa: E402
     fold_train_test_indices,
 )
 from kimore_ml_model import TemporalScoreModel, trainable_parameter_count  # noqa: E402
+from kimore_run_provenance import (sha256, prepare_run, complete_fold, verify_fold, validate_population)
 
 
 @dataclass(frozen=True)
@@ -93,7 +95,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--resume",
         action="store_true",
-        help="Skip folds that already contain predictions.csv",
+        help="Resume only matching runs with verified completed fold artifacts",
     )
     return parser.parse_args(argv)
 
@@ -319,6 +321,15 @@ def train_one_fold(
                 "epoch": epoch,
                 "training_loss": loss_sum / item_count,
                 "validation_mae": validation_mae,
+                **{
+                    f'validation_mae_{exercise}': float(np.mean(np.abs(
+                        validation_actual[validation_exercises == index]
+                        - validation_predictions[validation_exercises == index]
+                    ))) if np.any(validation_exercises == index) else None
+                    for index, exercise in enumerate(EXERCISES)
+                },
+                **{f'validation_samples_{exercise}': int(np.sum(validation_exercises == index))
+                   for index, exercise in enumerate(EXERCISES)},
                 "learning_rate": optimizer.param_groups[0]["lr"],
             }
         )
@@ -489,6 +500,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     if missing:
         raise ValueError(f"ML dataset is missing arrays: {sorted(missing)}")
 
+    if sorted(np.unique(arrays['fold_numbers']).tolist()) != [1, 2, 3, 4, 5]:
+        raise ValueError('The ML evaluation protocol requires exactly five folds')
+    expected = list(zip(arrays['sample_ids'].tolist(), arrays['fold_numbers'].tolist()))
+    if len(set(arrays['sample_ids'].tolist())) != len(expected):
+        raise ValueError('Dataset repeats sample IDs')
+    for fold in range(1, 6):
+        fold_train_test_indices(arrays['subject_ids'], arrays['fold_numbers'], fold)
+    manifest = {
+        'version': 1, 'configuration': asdict(config),
+        'data_sha256': sha256(args.data.expanduser().resolve()),
+        'population': expected,
+        'code': {str(path.relative_to(ROOT)): sha256(path) for path in
+                 [Path(__file__).resolve(), *sorted((ROOT / 'src').rglob('*.py'))]},
+        'runtime': {'torch': str(torch.__version__), 'numpy': np.__version__, 'device': str(device)},
+    }
+    # Normalize tuples to their on-disk JSON representation before comparison.
+    manifest = json.loads(json.dumps(manifest))
+    run_id = prepare_run(output_dir, manifest, args.resume)
+
     set_seed(config.seed)
     probe_model = TemporalScoreModel(
         channels=config.channels,
@@ -506,17 +536,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     all_rows: list[dict[str, object]] = []
     started = time.perf_counter()
     for fold in requested_folds:
-        predictions_path = output_dir / f"fold_{fold}" / "predictions.csv"
-        if args.resume and predictions_path.is_file():
+        fold_dir = output_dir / f"fold_{fold}"
+        if args.resume and fold_dir.exists():
             print(f"Fold {fold}: loading completed predictions", flush=True)
-            all_rows.extend(read_csv(predictions_path))
-            continue
-        all_rows.extend(
-            train_one_fold(arrays, fold, output_dir, device, config)
-        )
+            rows = verify_fold(fold_dir, run_id)
+        else:
+            with tempfile.TemporaryDirectory(prefix='.fold-', dir=output_dir) as temporary:
+                stage = Path(temporary)
+                rows = train_one_fold(arrays, fold, stage, device, config)
+                validate_population(rows, [pair for pair in expected if pair[1] == fold])
+                complete_fold(stage / f'fold_{fold}', run_id)
+                (stage / f'fold_{fold}').rename(fold_dir)
+        validate_population(rows, [pair for pair in expected if pair[1] == fold])
+        all_rows.extend(rows)
+
+    validate_population(all_rows, [pair for pair in expected if pair[1] in requested_folds])
+    completed_folds = [fold for fold in range(1, 6) if (output_dir / f'fold_{fold}').exists()]
+    all_rows = [row for fold in completed_folds
+                for row in verify_fold(output_dir / f'fold_{fold}', run_id)]
+    validate_population(all_rows, [pair for pair in expected if pair[1] in completed_folds])
 
     write_csv(all_rows, output_dir / "oof_predictions.csv")
     summary: dict[str, object] = {
+        "run_id": run_id,
+        "oof_sha256": sha256(output_dir / 'oof_predictions.csv'),
         "architecture": "three-block TCN + bidirectional GRU + masked attention",
         "multi_exercise_strategy": "exercise embedding and separate regression heads",
         "evaluation": (
@@ -527,7 +570,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "torch_version": torch.__version__,
         "trainable_parameters": trainable_parameter_count(probe_model),
         "configuration": asdict(config),
-        "completed_folds": list(requested_folds),
+        "completed_folds": completed_folds,
         "oof_samples": len(all_rows),
         "overall_model_metrics": safe_metrics(all_rows, "predicted_ts"),
         "overall_training_exercise_mean_metrics": safe_metrics(

@@ -27,6 +27,49 @@ if TORCH_AVAILABLE:
 
 @unittest.skipUnless(TORCH_AVAILABLE, "PyTorch ML extras are not installed")
 class MLModelTests(unittest.TestCase):
+    def test_training_partial_resume_and_verified_aggregation(self) -> None:
+        import tempfile
+        import contextlib
+        import io
+        from train_ml_baseline import main
+        from analyze_ml_results import load_run
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rng = np.random.default_rng(12)
+            data = root / 'data.npz'
+            np.savez(data, features=rng.normal(size=(25, 8, 9, 3)).astype(np.float32),
+                     frame_mask=np.ones((25, 8), dtype=bool),
+                     component_observed_mask=np.ones((25, 8, 9), dtype=bool),
+                     targets=np.arange(25, dtype=np.float32),
+                     exercise_indices=np.tile(np.arange(5), 5),
+                     fold_numbers=np.repeat(np.arange(1, 6), 5),
+                     sample_ids=np.asarray([f'S{i}_Es{e}' for i in range(5) for e in range(5)]),
+                     subject_ids=np.repeat([f'S{i}' for i in range(5)], 5),
+                     cohorts=np.repeat('synthetic', 25), quality_statuses=np.repeat('pass', 25),
+                     retained_fractions=np.ones(25, dtype=np.float32))
+            args = ['--data', str(data), '--output-dir', str(root / 'run'), '--epochs', '1',
+                    '--channels', '8', '--gru-hidden', '4', '--device', 'cpu', '--no-amp']
+            old_threads = torch.get_num_threads()
+            torch.set_num_threads(1)
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    main([*args, '--fold', '1'])
+                    main([*args, '--resume'])
+                    # Requesting one completed fold must preserve the full OOF summary.
+                    main([*args, '--resume', '--fold', '1'])
+                _, summary, rows = load_run(root / 'run')
+                self.assertEqual(len(rows), 25)
+                self.assertEqual(summary['completed_folds'], [1, 2, 3, 4, 5])
+                import csv
+                with (root / 'run/fold_1/history.csv').open(newline='') as handle:
+                    history = list(csv.DictReader(handle))
+                self.assertTrue(all(f'validation_mae_Es{number}' in history[0] for number in range(1, 6)))
+                self.assertEqual(sum(int(history[0][f'validation_samples_Es{number}']) for number in range(1, 6)), 5)
+                with self.assertRaisesRegex(ValueError, 'provenance mismatch'):
+                    main([*args, '--resume', '--seed', '123'])
+            finally:
+                torch.set_num_threads(old_threads)
+
     def test_model_returns_one_score_and_normalized_attention_per_sample(self) -> None:
         model = TemporalScoreModel(channels=16, gru_hidden=8, dropout=0.0)
         vectors = torch.randn(3, 12, 9, 3)

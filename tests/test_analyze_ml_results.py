@@ -54,6 +54,25 @@ class MultiSeedAnalysisTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+        from kimore_run_provenance import digest, atomic_json, complete_fold, sha256
+        manifest = {'version': 1, 'configuration': {'seed': seed},
+                    'population': [[row['sample_id'], row['fold']] for row in rows],
+                    'data_sha256': 'synthetic-fixture', 'code': {}, 'runtime': {}}
+        atomic_json(run / 'run_manifest.json', manifest)
+        run_id = digest(manifest)
+        for row in rows:
+            folder = run / f"fold_{row['fold']}"
+            folder.mkdir()
+            with (folder / 'predictions.csv').open('w', encoding='utf-8', newline='') as handle:
+                writer = csv.DictWriter(handle, fieldnames=list(row))
+                writer.writeheader()
+                writer.writerow(row)
+            for name in ('checkpoint.pt', 'history.csv', 'metrics.json'):
+                (folder / name).write_text('synthetic fixture', encoding='utf-8')
+            complete_fold(folder, run_id)
+        summary = json.loads((run / 'summary.json').read_text())
+        summary.update(run_id=run_id, oof_sha256=sha256(run / 'oof_predictions.csv'))
+        atomic_json(run / 'summary.json', summary)
         return run
 
     def write_dtw(self, root: Path) -> Path:

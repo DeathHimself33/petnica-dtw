@@ -47,6 +47,8 @@ class MLDataset:
     cohorts: tuple[str, ...]
     quality_statuses: tuple[str, ...]
     retained_fractions: np.ndarray  # (samples,), float32
+    source_manifest: Path | None = None
+    fold_reference: Path | None = None
 
     @property
     def sequence_length(self) -> int:
@@ -200,11 +202,21 @@ def build_ml_dataset(
     n_splits: int = 5,
     include_qc_failed: bool = False,
     progress: Callable[[str], None] = print,
+    folds_from: Path | None = None,
 ) -> tuple[MLDataset, dict[str, str]]:
     """Load all exercises and return model-ready tensors plus exclusions."""
+    if n_splits != 5:
+        raise ValueError("The ML evaluation protocol requires exactly five folds")
     manifest_path = manifest_path.expanduser().resolve()
     samples, exclusions = _all_manifest_samples(manifest_path)
-    assignments = make_subject_fold_assignments(samples, n_splits=n_splits)
+    if folds_from is None:
+        assignments = make_subject_fold_assignments(samples, n_splits=n_splits)
+    else:
+        from kimore_grouping import load_subject_fold_assignments
+        assignments = load_subject_fold_assignments(folds_from, n_splits)
+        missing = {sample.subject_id for sample in samples} - assignments.keys()
+        if missing:
+            raise ValueError(f'Fold reference is missing subjects: {sorted(missing)}')
 
     features: list[np.ndarray] = []
     frame_masks: list[np.ndarray] = []
@@ -273,6 +285,8 @@ def build_ml_dataset(
         cohorts=tuple(cohorts),
         quality_statuses=tuple(quality_statuses),
         retained_fractions=np.asarray(retained_fractions, dtype=np.float32),
+        source_manifest=manifest_path,
+        fold_reference=folds_from,
     )
     for fold in range(1, n_splits + 1):
         fold_train_test_indices(dataset.subject_ids, dataset.fold_numbers, fold)
@@ -287,6 +301,12 @@ def export_ml_dataset(
     """Write numeric tensors to NPZ and transparent schema details to JSON."""
     output_path = output_path.expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    if output_path.exists() or output_path.with_suffix('.json').exists():
+        raise ValueError('Dataset output exists; choose a new versioned output path')
+    from kimore_run_provenance import sha256
+    from kimore_coverage import coverage_rows
+    coverage = (coverage_rows(dataset.source_manifest, dataset.sample_ids, exclusions)
+                if dataset.source_manifest is not None else None)
     np.savez_compressed(
         output_path,
         features=dataset.features,
@@ -306,6 +326,10 @@ def export_ml_dataset(
         json.dumps(
             {
                 "samples": len(dataset.targets),
+                "npz_sha256": sha256(output_path),
+                "manifest_sha256": sha256(dataset.source_manifest) if dataset.source_manifest else None,
+                "fold_reference_sha256": sha256(dataset.fold_reference) if dataset.fold_reference else None,
+                "coverage_by_exercise_cohort": coverage,
                 "sequence_length": dataset.sequence_length,
                 "feature_shape": list(dataset.features.shape),
                 "feature": "nine Yu-Xiong unit vectors in body-local coordinates",
@@ -343,6 +367,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--sequence-length", type=int, default=DEFAULT_SEQUENCE_LENGTH)
     parser.add_argument("--splits", type=int, default=5)
     parser.add_argument("--include-qc-failed", action="store_true")
+    parser.add_argument('--folds-from', type=Path, help='Preserve subject folds from subject_folds.json or an existing NPZ')
     return parser.parse_args(argv)
 
 
@@ -353,6 +378,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         sequence_length=args.sequence_length,
         n_splits=args.splits,
         include_qc_failed=args.include_qc_failed,
+        folds_from=args.folds_from,
     )
     output_path, metadata_path = export_ml_dataset(dataset, exclusions, args.output)
     print(f"ML samples: {len(dataset.targets)}")
