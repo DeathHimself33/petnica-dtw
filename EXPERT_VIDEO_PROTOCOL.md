@@ -1,5 +1,32 @@
 # RGB validation review
 
+## Ready-to-run video preview
+
+To connect the existing corrected pilot to its real RGB files:
+
+```powershell
+.\.venv\Scripts\python.exe prepare_expert_videos.py
+.\.venv\Scripts\python.exe expert_review_app.py --video-packet results/video_preview
+```
+
+Open http://127.0.0.1:5050. The prepared packet uses a fresh database, preserving
+historical ratings. Preparation refuses a nonempty output directory; choose
+`--output results/video_preview_v2` for another packet. The script supports
+explicit manifest, queue, primary-labels and sheets paths for other existing
+review packets, including other exercises. Identity-matched labels and sheets
+must already exist; it does not fabricate first-pass expert judgments.
+
+Missing RGB in either member of a pair excludes that candidate. `packet.json`
+records exclusions and input hashes. Video files must decode as H.264 and have
+frame counts compatible with the skeleton. Playback should still be checked in
+the target browser. Media are frozen by the app on first launch.
+
+**This mode is a preview, not validation.** Recording endpoints are used without
+inventing movement annotations or a training inventory. The page banner, saved
+round metadata and CSV exports all mark this purpose explicitly. The strict
+validation mode below still requires a complete training inventory and verified
+movement bounds. A preview packet is never silently promoted to validation.
+
 The video workflow shows the reference first and requires acknowledgment of the
 component/interval task before opening examples. A changed reference triggers
 the introduction again. Reviewers judge a visible execution error in the named

@@ -29,6 +29,7 @@
     </header>
 
     <main class="page-shell">
+      {% if video_preview %}<div class="flash">Probni video-pregled — nije konačna validacija. Skala 0–100% označava ceo snimak; granice samog pokreta još nisu potvrđene.</div>{% endif %}
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           <div class="flash-stack" role="status" aria-live="polite">

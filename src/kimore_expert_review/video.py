@@ -8,15 +8,22 @@ import cv2
 from .model import file_sha256
 
 
-def load_video_round(manifest_path, training_path, candidates):
+def load_video_round(manifest_path, training_path, candidates, *, preview=False):
     """Training CSV must enumerate the actual training run, not fold membership."""
-    manifest_path, training_path = Path(manifest_path), Path(training_path)
-    with training_path.open(encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle)
-        if not {"sample_id", "subject_id"} <= set(reader.fieldnames or []):
-            raise ValueError("Training inventory requires sample_id and subject_id")
-        training = list(reader)
-    if not training or any(not r["sample_id"] or not r["subject_id"] for r in training):
+    manifest_path = Path(manifest_path)
+    if preview and training_path is not None:
+        raise ValueError("Preview must not claim a verified training inventory")
+    if not preview and training_path is None:
+        raise ValueError("Validation requires the complete training inventory")
+    training = []
+    if training_path is not None:
+        training_path = Path(training_path)
+        with training_path.open(encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            if not {"sample_id", "subject_id"} <= set(reader.fieldnames or []):
+                raise ValueError("Training inventory requires sample_id and subject_id")
+            training = list(reader)
+    if not preview and (not training or any(not r["sample_id"] or not r["subject_id"] for r in training)):
         raise ValueError("Supply the complete, nonempty training inventory")
     training_samples = {r["sample_id"] for r in training}
     training_subjects = {r["subject_id"] for r in training}
@@ -32,7 +39,7 @@ def load_video_round(manifest_path, training_path, candidates):
         if not sid or not row["subject_id"] or sid in seen:
             raise ValueError("Video manifest has missing or duplicate identities")
         seen.add(sid)
-        if row["role"] not in {"validation", "reference"}:
+        if row["role"] not in ({"validation", "reference", "both"} if preview else {"validation", "reference"}):
             raise ValueError("Video role must be validation or reference")
         if row["role"] == "validation" and (sid in training_samples or row["subject_id"] in training_subjects):
             raise ValueError(f"Training/validation leakage: {sid}")
@@ -43,6 +50,8 @@ def load_video_round(manifest_path, training_path, candidates):
         if path.suffix.lower() not in {".mp4", ".webm"}:
             raise ValueError(f"Browser video must be MP4 or WebM: {sid}")
         start, end = float(row["start_seconds"]), float(row["end_seconds"])
+        if not preview and row.get('boundary_basis', 'movement') != 'movement':
+            raise ValueError('Validation requires verified movement boundaries')
         capture = cv2.VideoCapture(str(path))
         try:
             fps = capture.get(cv2.CAP_PROP_FPS)
@@ -61,7 +70,8 @@ def load_video_round(manifest_path, training_path, candidates):
         if sid not in videos or ref not in videos:
             excluded.append({"sample_id": sid, "reason": "sample_or_reference_missing_rgb"})
             continue
-        if videos[sid]["role"] != "validation" or videos[ref]["role"] != "reference":
+        if (videos[sid]["role"] not in ({"validation", "both"} if preview else {"validation"})
+                or videos[ref]["role"] not in ({"reference", "both"} if preview else {"reference"})):
             raise ValueError("Candidates must be validation recordings with a reference-role video")
         if videos[sid]["subject_id"] != candidate.row.get("subject_id"):
             raise ValueError(f"Subject identity mismatch: {sid}")
@@ -69,9 +79,10 @@ def load_video_round(manifest_path, training_path, candidates):
     if not selected:
         raise ValueError("No eligible RGB validation candidates remain")
     validation_subjects = {videos[c.row["sample_id"]]["subject_id"] for c in selected}
-    if any(v["role"] == "reference" and v["subject_id"] in validation_subjects for v in videos.values()):
+    if not preview and any(v["role"] == "reference" and v["subject_id"] in validation_subjects for v in videos.values()):
         raise ValueError("Reference and validation subjects must be disjoint")
-    audit = {"manifest_sha256": file_sha256(manifest_path), "training_sha256": file_sha256(training_path),
+    audit = {"manifest_sha256": file_sha256(manifest_path), "training_sha256": file_sha256(training_path) if training_path else None,
+             "purpose": "preview_not_validation" if preview else "holdout_validation",
              "videos": {k: {field: value for field, value in v.items() if field != "path"} for k, v in videos.items()},
              "excluded": excluded, "normalization": "linear movement start/end; no phase alignment"}
     return selected, videos, audit

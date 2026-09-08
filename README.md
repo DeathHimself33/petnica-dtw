@@ -176,6 +176,14 @@ independent reviewer must complete the generated blinded
 
 Start the blinded second-review workflow with:
 
+For actual RGB video playback of the existing corrected pilot, first run
+`prepare_expert_videos.py`, then
+`expert_review_app.py --video-packet results/video_preview` using the project
+Python environment. This is explicitly a preview using recording endpoints;
+see `EXPERT_VIDEO_PROTOCOL.md` for preparation and strict validation requirements.
+
+For the historical image-only workflow:
+
 ```powershell
 .\.venv\Scripts\python.exe .\expert_review_app.py --legacy-sheets
 ```

@@ -25,9 +25,9 @@
       </div>
       {% endfor %}
     </div>
-    <label for="movement-progress">Zajednički položaj u pokretu: <output data-movement-output>0%</output></label>
+    <label for="movement-progress">Zajednički položaj u {{ 'snimku' if video_preview else 'pokretu' }}: <output data-movement-output>0%</output></label>
     <input id="movement-progress" type="range" min="0" max="100" step="0.1" value="0" data-movement-progress>
-    <p>Klizač pauzira oba snimka i postavlja ih na isti procenat pokreta: 0% je označeni početak, 100% označeni kraj. Međufaze nisu nužno poravnate. Video kontrole puštaju svaki snimak zasebno, originalnom brzinom.</p>
+    <p>Klizač pauzira oba snimka i postavlja ih na isti procenat {{ 'celog snimka' if video_preview else 'pokreta' }}: 0% je početak, 100% kraj. Međufaze nisu nužno poravnate. Video kontrole puštaju svaki snimak zasebno, originalnom brzinom.</p>
     <p>Interval zadatka {{ candidate.interval_label }} odnosi se na izvorni snimak prikazan u pregledu ispod, a ne na ovu normalizovanu skalu.</p>
   </section>
   {% endif %}

@@ -92,6 +92,7 @@ def create_app(
     secret_key: str | None = None,
     video_manifest_path: Path | None = None,
     training_inventory_path: Path | None = None,
+    video_preview: bool = False,
 ) -> Flask:
     queue_path = Path(queue_path).resolve()
     primary_labels_path = Path(primary_labels_path).resolve()
@@ -99,11 +100,13 @@ def create_app(
     database_path = Path(database_path).resolve()
     candidates, queue_hash = load_candidates(queue_path, sheets_dir)
     videos, video_audit = {}, None
-    if (video_manifest_path is None) != (training_inventory_path is None):
+    if video_preview and (video_manifest_path is None or training_inventory_path is not None):
+        raise ValueError('Video preview requires a manifest and no training inventory')
+    if not video_preview and (video_manifest_path is None) != (training_inventory_path is None):
         raise ValueError("Supply both video manifest and training inventory")
     if video_manifest_path is not None:
         from .video import load_video_round
-        candidates, videos, video_audit = load_video_round(video_manifest_path, training_inventory_path, candidates)
+        candidates, videos, video_audit = load_video_round(video_manifest_path, training_inventory_path, candidates, preview=video_preview)
     primary = load_primary_labels(primary_labels_path, candidates)
     package = {
         'video_round': video_audit,
@@ -225,6 +228,7 @@ def create_app(
             "confidences": CONFIDENCES,
             "active_reviewer": active_reviewer,
             "video_mode": bool(videos),
+            "video_preview": video_preview,
             "nav_sealed": (
                 is_reviewer_sealed(database_path, active_reviewer)
                 if isinstance(active_reviewer, str)
@@ -522,6 +526,7 @@ def create_app(
         for candidate in candidates:
             row: dict[str, object] = dict(candidate.row)
             row['round_id'] = round_id
+            row['review_purpose'] = 'preview_not_validation' if video_preview else ('holdout_validation' if videos else 'legacy_pilot')
             review = reviews[candidate.key]
             for field in REVIEW_COLUMNS:
                 row[field] = reviewer_id if field == "annotator" else review[field]
@@ -557,6 +562,7 @@ def create_app(
                 final["reviewer_id"] = "reviewer_consensus"
             row: dict[str, object] = dict(candidate.row)
             row['round_id'] = round_id
+            row['review_purpose'] = 'preview_not_validation' if video_preview else ('holdout_validation' if videos else 'legacy_pilot')
             for field in REVIEW_COLUMNS:
                 row[f"primary_{field}"] = first.get(field, "")
                 row[f"second_{field}"] = (
