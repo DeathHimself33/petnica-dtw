@@ -164,6 +164,9 @@ def save_alignment_plot(
     quality_label: str,
     output_path: Path,
 ) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     reference_yaw = reference.feature[:, 0]

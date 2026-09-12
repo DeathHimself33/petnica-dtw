@@ -25,6 +25,9 @@ def save_joint_signal_plot(
     processed: JointSequence,
     output_path: Path,
 ) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     joint_index = JOINT_INDEX["SpineShoulder"]
@@ -61,6 +64,9 @@ def save_shoulder_yaw_plot(
     processed: JointSequence,
     output_path: Path,
 ) -> float:
+    import matplotlib
+
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     raw_yaw = shoulder_yaw_degrees(raw)

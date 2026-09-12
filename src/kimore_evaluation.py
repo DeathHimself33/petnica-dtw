@@ -16,6 +16,8 @@ from typing import Callable, Sequence
 import matplotlib
 import numpy as np
 
+matplotlib.use("Agg")
+
 from kimore_dataset import KimoreSample, read_manifest
 from kimore_grouping import assert_no_subject_leakage, make_subject_folds, subject_groups
 from kimore_plain_dtw import (

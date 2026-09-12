@@ -10,6 +10,8 @@ from typing import Callable
 import matplotlib
 import numpy as np
 
+matplotlib.use("Agg")
+
 from kimore_dataset import read_manifest
 from kimore_evaluation import (
     BOOTSTRAP_SEED,

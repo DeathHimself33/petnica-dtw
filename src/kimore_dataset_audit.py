@@ -571,6 +571,9 @@ def save_first_sample_plot(rows: list[dict[str, object]], path: Path) -> str | N
     if first is None:
         return None
 
+    import matplotlib
+
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     raw = read_numeric_csv(Path(str(first["position_path"])))

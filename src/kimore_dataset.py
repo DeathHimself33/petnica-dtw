@@ -223,6 +223,9 @@ def save_joint_plot(
     joint_name: str,
     output_path: Path,
 ) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     try:
