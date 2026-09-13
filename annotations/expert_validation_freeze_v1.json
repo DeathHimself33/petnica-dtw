@@ -1,0 +1,94 @@
+{
+  "protocol_version": "expert-localization-pilot-v1",
+  "frozen_on": "2026-09-13",
+  "purpose": "expert_pilot_gate_not_external_validation",
+  "baseline_git_commit": "805c5df177f95b7d77b0c1265e565d5b78de51a3",
+  "freeze_rule": "Do not tune QC, candidate selection, model architecture, thresholds, or folds until both expert reviews and adjudication are complete.",
+  "collection_mode": "blinded_collect_only",
+  "review_design": {
+    "independent_experts": 2,
+    "adjudicator": "third expert or documented consensus after both reviews are sealed",
+    "primary_evidence": "RGB sample and reference videos",
+    "candidate_core_items_before_rgb_filter": 20,
+    "core_items": 17,
+    "supplemental_items": 3,
+    "unique_items": 20,
+    "rgb_excluded_sample_ids": ["E_ID12_Es3", "NE_ID20_Es3", "P_ID4_Es3"],
+    "rgb_exclusion_reason": "missing reference RGB: NE_ID9_Es3",
+    "unresolved_pilot_items_covered": 4,
+    "unresolved_item_already_in_core": "P_ID12_Es3|3",
+    "core_metrics_only": true,
+    "supplemental_items_excluded_from_original_agreement_metric": true
+  },
+  "artifacts": [
+    {
+      "path": "results/expert_validation_20260913/core_video_preview/queue.csv",
+      "sha256": "5554b3893125c518f26c59543e30344a3e667ccaf91441a04db51f8941b37428"
+    },
+    {
+      "path": "results/expert_validation_20260913/supplemental_round/queue.csv",
+      "sha256": "d6cef796033c52371c7091b8f7e7a4492639988894df7cde95f7df93ff53754e"
+    },
+    {
+      "path": "results/expert_validation_20260913/core_video_preview/videos.csv",
+      "sha256": "172e32433f299fe3d68f83addb1a5c9b111ad3dbf4d3a8964a44c00bb9635974"
+    },
+    {
+      "path": "results/expert_validation_20260913/supplemental_round/videos.csv",
+      "sha256": "efb570b0454647ff2ac44664534b330727f26f58a9c9e51d72e399f40adb7e51"
+    },
+    {
+      "path": "results/dataset_v2_home_rebuild_20260912/kimore_all_exercises_128.npz",
+      "sha256": "7bb0fd23d478f35dd237100bb7ecddca101895a70243e6da1fff98c19469c66b"
+    },
+    {
+      "path": "results/dataset_v2_home_rebuild_20260912/kimore_manifest.csv",
+      "sha256": "4c6b28b7da97145d5f3b0bcdb3445b0510b746d27b7cbf31376db4181a90a2b9"
+    },
+    {
+      "path": "results/revalidation_20260913/qc_dtw_v2/all_exercises_summary.json",
+      "sha256": "7dea90640a1f6ccfb3bf4b8fb8d22ebeeb6861a561c5e2f5ef8ebb46fca39b5a"
+    },
+    {
+      "path": "results/revalidation_20260913/qc_dtw_v2/oof_predictions_all_exercises.csv",
+      "sha256": "64be9664fc3364a27b63675af1f861476ededbe3232790b5f5b2e0d36f0eee24"
+    },
+    {
+      "path": "results/revalidation_20260913/multiseed_analysis/multiseed_summary.json",
+      "sha256": "8a0e0aea4f252de85eacc3efa69ae7cc129ec4556c084ced3c30479a1238aa19"
+    },
+    {
+      "path": "results/revalidation_20260913/multiseed_analysis/ensemble_oof_predictions.csv",
+      "sha256": "46e6c29e7ed045949378c918065e2bc13e16bb629ccacf729b543bb3cae38400"
+    },
+    {
+      "path": "results/revalidation_20260913/multiseed_analysis/bootstrap_intervals.csv",
+      "sha256": "bd8329d5fe569d0db61ac0fbb9c8ed22aefa551e99ddc65c6d9a3b67a768915f"
+    },
+    {
+      "path": "annotations/expert_validation_core_queue_v1.csv",
+      "sha256": "512de4526146de68fc0549fb93a68634564a804d0756229f77b6f48752d9377f",
+      "hash_mode": "text_lf"
+    },
+    {
+      "path": "annotations/expert_validation_supplemental_queue_v1.csv",
+      "sha256": "6adbafd94426e029ed15a17b054aa70bfa1c9e32e57650260c2a004f5cfa369f",
+      "hash_mode": "text_lf"
+    },
+    {
+      "path": "annotations/kimore_es3_pilot_labels.csv",
+      "sha256": "0352bc846c082d939b22c808d122693bae0e468cf77f899472990cef561345b5",
+      "hash_mode": "text_lf"
+    },
+    {
+      "path": "ANNOTATION_GUIDE.md",
+      "sha256": "9cf21bb879e95024f9a9d7b63d6de51bb154fa4d5417def2b8c21b6fc46418aa",
+      "hash_mode": "text_lf"
+    },
+    {
+      "path": "EXPERT_VIDEO_PROTOCOL.md",
+      "sha256": "76fe1edf25c2766c4b199e06764aeae0c03d722baa3155938ba09b77b80f5061",
+      "hash_mode": "text_lf"
+    }
+  ]
+}

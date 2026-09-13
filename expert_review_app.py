@@ -51,6 +51,7 @@ def main() -> None:
     parser.add_argument("--video-manifest", type=Path, help="RGB paths and movement boundaries for validation/reference recordings")
     parser.add_argument("--training-inventory", type=Path, help="Complete sample_id,subject_id CSV used to train the evaluated model")
     parser.add_argument("--legacy-sheets", action="store_true", help="Open the historical image-only pilot, not holdout validation")
+    parser.add_argument("--collect-only", action="store_true", help="Keep primary labels and agreement hidden after sealing; allow only the reviewer's own export")
     args = parser.parse_args()
     if args.video_packet:
         if args.legacy_sheets or args.video_manifest or args.training_inventory:
@@ -83,6 +84,7 @@ def main() -> None:
         video_manifest_path=args.video_manifest,
         training_inventory_path=args.training_inventory,
         video_preview=args.video_preview,
+        collect_only=args.collect_only,
     )
     if args.debug:
         app.run(host=args.host, port=args.port, debug=True)

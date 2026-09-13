@@ -93,6 +93,7 @@ def create_app(
     video_manifest_path: Path | None = None,
     training_inventory_path: Path | None = None,
     video_preview: bool = False,
+    collect_only: bool = False,
 ) -> Flask:
     queue_path = Path(queue_path).resolve()
     primary_labels_path = Path(primary_labels_path).resolve()
@@ -114,6 +115,7 @@ def create_app(
         'primary_sha256': file_sha256(primary_labels_path),
         'evidence': {c.sheet_path.name: c.evidence_sha256 for c in candidates},
         'protocol': 'paired-review-v2; uncertain unresolved; ungradable excluded from binary metrics',
+        'collection_mode': 'blinded_only' if collect_only else 'paired_review',
         'annotation_guide_sha256': file_sha256(Path(__file__).resolve().parents[2] / 'ANNOTATION_GUIDE.md'),
         'candidate_identity_code_sha256': file_sha256(Path(__file__).resolve().parents[1] / 'kimore_candidate_identity.py'),
         'application': {str(p.relative_to(Path(__file__).parent)): file_sha256(p)
@@ -229,8 +231,10 @@ def create_app(
             "active_reviewer": active_reviewer,
             "video_mode": bool(videos),
             "video_preview": video_preview,
+            "collect_only": collect_only,
             "nav_sealed": (
-                is_reviewer_sealed(database_path, active_reviewer)
+                not collect_only
+                and is_reviewer_sealed(database_path, active_reviewer)
                 if isinstance(active_reviewer, str)
                 else False
             ),
@@ -427,6 +431,12 @@ def create_app(
         except ValueError as error:
             flash(str(error), "error")
             return redirect(url_for("progress"))
+        if collect_only:
+            flash(
+                "Nezavisni pregled je zaključan. Primarne oznake ostaju skrivene; preuzmite sopstveni izvoz.",
+                "success",
+            )
+            return redirect(url_for("progress"))
         flash(
             "Nezavisni pregled je zaključan. Primarne oznake su sada dostupne za poređenje.",
             "success",
@@ -436,6 +446,8 @@ def create_app(
     @app.get("/agreement")
     @reviewer_required
     def agreement() -> str:
+        if collect_only:
+            abort(403, "Agreement is disabled during blinded collection.")
         reviewer_id, reviews = sealed_data()
         summary = agreement_summary(candidates, primary, reviews)
         disagreements = disagreement_candidates(reviews)
@@ -451,6 +463,8 @@ def create_app(
     @app.route("/adjudication", methods=["GET", "POST"])
     @reviewer_required
     def adjudication_start() -> Response | str:
+        if collect_only:
+            abort(403, "Adjudication is disabled during blinded collection.")
         _, reviews = sealed_data()
         disagreements = disagreement_candidates(reviews)
         if request.method == "POST":
@@ -478,6 +492,8 @@ def create_app(
     @app.route("/adjudication/<int:position>", methods=["GET", "POST"])
     @reviewer_required
     def adjudication_item(position: int) -> Response | str:
+        if collect_only:
+            abort(403, "Adjudication is disabled during blinded collection.")
         _, reviews = sealed_data()
         adjudicator_id = session.get("adjudicator_id")
         if not isinstance(adjudicator_id, str):
@@ -536,6 +552,8 @@ def create_app(
     @app.get("/export/agreement.json")
     @reviewer_required
     def export_agreement() -> Response:
+        if collect_only:
+            abort(403, "Agreement is disabled during blinded collection.")
         _, reviews = sealed_data()
         body = agreement_json_bytes({**agreement_summary(candidates, primary, reviews), 'round_id': round_id, 'binary_coverage_definition': 'decided_items / items; uncertain and ungradable excluded'})
         return Response(
@@ -549,6 +567,8 @@ def create_app(
     @app.get("/export/adjudicated.csv")
     @reviewer_required
     def export_adjudicated() -> Response:
+        if collect_only:
+            abort(403, "Adjudication is disabled during blinded collection.")
         reviewer_id, reviews = sealed_data()
         adjudications = load_adjudications(database_path, current_reviewer())
         rows: list[dict[str, object]] = []

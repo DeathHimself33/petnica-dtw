@@ -7,6 +7,40 @@ from kimore_expert_review.video import load_video_round
 
 
 class ExpertVideoTests(ExpertReviewAppTests):
+    def test_rgb_collection_excludes_missing_video_and_stays_blinded(self):
+        (self.root / 'S1_Es3.mp4').unlink()
+        self.app = create_app(
+            queue_path=self.queue, primary_labels_path=self.primary,
+            sheets_dir=self.sheets, database_path=self.root / 'rgb-collection.sqlite3',
+            testing=True, secret_key='test', video_manifest_path=self.manifest,
+            video_preview=True, collect_only=True,
+        )
+        self.client = self.app.test_client()
+        self.assertEqual(
+            [c.row['sample_id'] for c in self.app.extensions['review_candidates']],
+            ['S2_Es3'],
+        )
+        self._start('expert_01')
+        self.assertIn('/reference/1', self.client.get('/review/1').location)
+        self.client.post('/reference/1', data={'csrf_token': self._csrf(), 'understood': 'yes'})
+        page = self.client.get('/review/1').get_data(as_text=True)
+        self.assertEqual(page.count('<video '), 2)
+        self.assertIn('<details class="evidence-panel">', page)
+        self.assertNotIn('<details class="evidence-panel" open', page)
+        self.assertLess(page.index('<video '), page.index('<details'))
+        self._save_label(1)
+        self.client.post('/finish', data={'csrf_token': self._csrf()})
+        self.assertEqual(self.client.get('/agreement').status_code, 403)
+        self.assertEqual(self.client.get('/export/adjudicated.csv').status_code, 403)
+        exported = self.client.get('/export/second-review.csv')
+        self.assertEqual(exported.status_code, 200)
+        self.assertNotIn(b'S1_Es3', exported.data)
+        self.assertNotIn(b'SECRET PRIMARY NOTE', exported.data)
+        self._start('expert_02')
+        progress = self.client.get('/api/progress').get_json()
+        self.assertEqual(progress['total'], 1)
+        self.assertEqual(progress['reviewed'], 0)
+
     def test_preview_is_explicit_and_cannot_claim_validation(self):
         candidates = self.app.extensions['review_candidates']
         with self.assertRaisesRegex(ValueError, 'training inventory'):

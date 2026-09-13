@@ -220,6 +220,35 @@ class ExpertReviewAppTests(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertEqual({row["annotator"] for row in rows}, {"expert_02"})
 
+    def test_collect_only_keeps_primary_hidden_after_sealing(self) -> None:
+        self.app = create_app(
+            queue_path=self.queue,
+            primary_labels_path=self.primary,
+            sheets_dir=self.sheets,
+            database_path=self.root / "collect-only.sqlite3",
+            testing=True,
+            secret_key="test-secret",
+            collect_only=True,
+        )
+        self.client = self.app.test_client()
+        self._start()
+        self._save_label(1)
+        self._save_label(2)
+
+        finished = self.client.post(
+            "/finish", data={"csrf_token": self._csrf()}
+        )
+        self.assertIn("/progress", finished.location)
+        progress = self.client.get("/progress")
+        self.assertIn("Preuzmi zaključani pregled".encode(), progress.data)
+        self.assertNotIn(b"SECRET PRIMARY NOTE", progress.data)
+        self.assertNotIn(b"primary_reviewer", progress.data)
+        self.assertEqual(self.client.get("/agreement").status_code, 403)
+        self.assertEqual(self.client.get("/adjudication").status_code, 403)
+        self.assertEqual(self.client.get("/export/agreement.json").status_code, 403)
+        self.assertEqual(self.client.get("/export/adjudicated.csv").status_code, 403)
+        self.assertEqual(self.client.get("/export/second-review.csv").status_code, 200)
+
     def test_error_requires_type_and_severity(self) -> None:
         self._start()
         response = self.client.post(

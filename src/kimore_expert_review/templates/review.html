@@ -28,8 +28,10 @@
     <label for="movement-progress">Zajednički položaj u {{ 'snimku' if video_preview else 'pokretu' }}: <output data-movement-output>0%</output></label>
     <input id="movement-progress" type="range" min="0" max="100" step="0.1" value="0" data-movement-progress>
     <p>Klizač pauzira oba snimka i postavlja ih na isti procenat {{ 'celog snimka' if video_preview else 'pokreta' }}: 0% je početak, 100% kraj. Međufaze nisu nužno poravnate. Video kontrole puštaju svaki snimak zasebno, originalnom brzinom.</p>
-    <p>Interval zadatka {{ candidate.interval_label }} odnosi se na izvorni snimak prikazan u pregledu ispod, a ne na ovu normalizovanu skalu.</p>
+    <p>Interval zadatka {{ candidate.interval_label }} označava deo izvornog snimka. {% if video_preview %}Pronađite ga na skali celog snimka; položaj reference na zajedničkom klizaču nije DTW poravnanje.{% else %}Njegove granice nisu izražene na skali samog pokreta.{% endif %}</p>
   </section>
+  <details class="evidence-panel">
+    <summary>Pomoćni prikaz frejmova iz intervala</summary>
   {% endif %}
   <section class="evidence-panel" aria-labelledby="evidence-heading">
     <div class="section-heading">
@@ -42,6 +44,7 @@
     <img class="evidence-image" src="{{ url_for('evidence', position=position) }}"
          alt="Zaslepljeni pregled uzorka, reference i izabranog intervala">
   </section>
+  {% if video_mode %}</details>{% endif %}
 
   <form method="post" class="review-form" data-review-form>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

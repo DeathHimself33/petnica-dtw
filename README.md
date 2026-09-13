@@ -174,6 +174,16 @@ independent reviewer must complete the generated blinded
 
 ### Local expert-review application
 
+The ready-to-run expert pilot gate is frozen in
+`annotations/expert_validation_freeze_v1.json`. Run
+`audits/verify_expert_validation_readiness.py`, then use
+`start_expert_validation.ps1`; the full reviewer and organizer procedure is in
+`EXPERT_VALIDATION_RUNBOOK.md`. Both rounds default to RGB sample/reference video
+and blinded collection. Missing reference RGB excludes three of the original
+20 core items: agreement uses the remaining 17, with 17/20 coverage reported.
+The three-item supplement covers the remaining unresolved cases separately;
+all four unresolved pilot cases remain included across the two rounds.
+
 Start the blinded second-review workflow with:
 
 For actual RGB video playback of the existing corrected pilot, first run

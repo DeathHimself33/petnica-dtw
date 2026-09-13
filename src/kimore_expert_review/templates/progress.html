@@ -32,7 +32,7 @@
     <section class="finish-panel">
       <div>
         <h2>Zaključavanje nezavisnog pregleda</h2>
-        <p>Nakon zaključavanja odgovori se više ne mogu menjati, a preliminarne oznake postaju vidljive.</p>
+        <p>Nakon zaključavanja odgovori se više ne mogu menjati{% if not collect_only %}, a preliminarne oznake postaju vidljive{% endif %}.</p>
       </div>
       <form method="post" action="{{ url_for('finish') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -41,6 +41,8 @@
         </button>
       </form>
     </section>
+  {% elif collect_only %}
+    <a class="button button-primary" href="{{ url_for('export_second_review') }}">Preuzmi zaključani pregled</a>
   {% else %}
     <a class="button button-primary" href="{{ url_for('agreement') }}">Otvori slaganje recenzenata</a>
   {% endif %}

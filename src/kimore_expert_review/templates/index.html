@@ -21,8 +21,8 @@
             <span class="meta-label">Napredak</span>
             <strong>{{ progress.reviewed }}/{{ progress.total }}</strong>
           </div>
-          <a class="button button-primary" href="{{ url_for('agreement') if progress.sealed else url_for('review_next') }}">
-            {% if progress.sealed %}Otvori rezultate{% else %}Nastavi pregled{% endif %}
+          <a class="button button-primary" href="{{ url_for('progress') if progress.sealed and collect_only else (url_for('agreement') if progress.sealed else url_for('review_next')) }}">
+            {% if progress.sealed and collect_only %}Otvori izvoz{% elif progress.sealed %}Otvori rezultate{% else %}Nastavi pregled{% endif %}
           </a>
         </div>
       {% else %}
@@ -48,7 +48,11 @@
         <li>Ocenite samo naznačenu komponentu u datom intervalu.</li>
         <li>Ne zaključujte iz samog DTW izbora kandidata.</li>
         <li>Za nesiguran ili neocenjiv primer obavezno dodajte razlog.</li>
-        <li>Primarne oznake se otkrivaju tek nakon zaključavanja svih odgovora.</li>
+        {% if collect_only %}
+          <li>Primarne oznake ostaju skrivene i posle zaključavanja; organizator poredi tek kada oba eksperta završe.</li>
+        {% else %}
+          <li>Primarne oznake se otkrivaju tek nakon zaključavanja svih odgovora.</li>
+        {% endif %}
       </ol>
       {% if primary_annotators %}
         <p class="privacy-note">Reviewer ID mora biti različit od preliminarnog recenzenta.</p>
